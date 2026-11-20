@@ -1,0 +1,5 @@
+# The fast gate: types, ESLint and Prettier, then the Vitest unit tests (about 40 s).
+# The Cypress end-to-end and component tests are left out: they need a browser,
+# Xvfb and both servers. The unit tests rewrite the tracked data/database.json,
+# so it is restored afterwards, pass or fail.
+export COREPACK_ENABLE_DOWNLOAD_PROMPT=0; corepack yarn -s types && corepack yarn -s lint && CI=1 corepack yarn -s test:unit:ci; s=$?; git checkout -- data/database.json; exit $s
