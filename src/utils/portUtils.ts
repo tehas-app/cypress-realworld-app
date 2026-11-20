@@ -3,6 +3,10 @@ import detect from "detect-port";
 
 export const frontendPort = process.env.PORT;
 export const backendPort = process.env.VITE_BACKEND_PORT;
+// Where the browser calls the API. A preview serves the app and the API on one
+// origin, so it builds with VITE_API_URL=/api; everywhere else it is the
+// backend on localhost.
+export const apiUrl = process.env.VITE_API_URL || `http://localhost:${backendPort}`;
 
 export const getBackendPort = async () => {
   return detect(Number(backendPort))
