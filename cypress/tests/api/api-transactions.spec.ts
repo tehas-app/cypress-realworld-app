@@ -8,6 +8,8 @@ type TestTransactionsCtx = {
   transactionId?: string;
   notificationId?: string;
   bankAccountId?: string;
+  // pending payment request sent by authenticatedUser to receiver
+  pendingRequestId?: string;
 };
 
 const getFakeAmount = () => parseInt(faker.finance.amount(), 10);
@@ -36,6 +38,14 @@ describe("Transactions API", function () {
 
     cy.database("find", "transactions").then((transaction: Transaction) => {
       ctx.transactionId = transaction.id;
+    });
+
+    cy.database("filter", "transactions", {
+      senderId: ctx.authenticatedUser!.id,
+      receiverId: ctx.receiver!.id,
+      requestStatus: "pending",
+    }).then((transactions: Transaction[]) => {
+      ctx.pendingRequestId = transactions[0].id;
     });
 
     cy.database("find", "notifications").then((notification: NotificationType) => {
@@ -144,14 +154,6 @@ describe("Transactions API", function () {
   });
 
   context("PATCH /transactions/:transactionId", function () {
-    it("updates a transaction", function () {
-      cy.request("PATCH", `${apiTransactions}/${ctx.transactionId}`, {
-        requestStatus: "rejected",
-      }).then((response) => {
-        expect(response.status).to.eq(204);
-      });
-    });
-
     it("errors when an invalid field sent", function () {
       cy.request({
         method: "PATCH",
@@ -163,6 +165,74 @@ describe("Transactions API", function () {
       }).then((response) => {
         expect(response.status).to.eq(422);
         expect(response.body.errors.length).to.eq(1);
+      });
+    });
+
+    it("lets the receiver reject a pending request", function () {
+      cy.loginByApi(ctx.receiver!.username).then(() =>
+        cy
+          .request("PATCH", `${apiTransactions}/${ctx.pendingRequestId}`, {
+            requestStatus: "rejected",
+          })
+          .then((response) => {
+            expect(response.status).to.eq(204);
+          })
+      );
+    });
+
+    it("lets the receiver accept a pending request", function () {
+      cy.loginByApi(ctx.receiver!.username).then(() =>
+        cy
+          .request("PATCH", `${apiTransactions}/${ctx.pendingRequestId}`, {
+            requestStatus: "accepted",
+          })
+          .then((response) => {
+            expect(response.status).to.eq(204);
+          })
+      );
+    });
+
+    it("does not let the sender resolve their own request", function () {
+      cy.request({
+        method: "PATCH",
+        url: `${apiTransactions}/${ctx.pendingRequestId}`,
+        failOnStatusCode: false,
+        body: { requestStatus: "accepted" },
+      }).then((response) => {
+        expect(response.status).to.eq(403);
+      });
+    });
+
+    it("does not let a third user resolve someone else's request", function () {
+      cy.database("filter", "users")
+        .then((users: User[]) => {
+          const thirdUser = users.find(
+            (user: User) => user.id !== ctx.authenticatedUser!.id && user.id !== ctx.receiver!.id
+          )!;
+
+          return cy.loginByApi(thirdUser.username).then(() =>
+            cy.request({
+              method: "PATCH",
+              url: `${apiTransactions}/${ctx.pendingRequestId}`,
+              failOnStatusCode: false,
+              body: { requestStatus: "accepted" },
+            })
+          );
+        })
+        .then((response) => {
+          expect(response.status).to.eq(403);
+        });
+    });
+
+    it("errors when the transaction does not exist", function () {
+      // a well-formed short id that no seeded transaction carries
+      cy.request({
+        method: "PATCH",
+        url: `${apiTransactions}/zzzzzzzzzzzzzzz`,
+        failOnStatusCode: false,
+        body: { requestStatus: "rejected" },
+      }).then((response) => {
+        expect(response.status).to.eq(404);
       });
     });
   });
