@@ -149,6 +149,34 @@ yarn cypress:open
 | component | [src/(next to component)](./src)         |
 | unit      | [`src/__tests__`](./src/__tests__)       |
 
+### Running the tests
+
+Fast checks — these need no server running:
+
+```shell
+yarn types             # validates types
+yarn lint              # ESLint plus a Prettier format check
+yarn test:unit:ci      # unit tests, one run (yarn test:unit runs them in watch mode)
+```
+
+End-to-end tests need the application running. Start the test server, then run the specs:
+
+```shell
+yarn start:ci          # backend on 3001 and frontend on 3000, in test mode
+yarn cypress:run       # all e2e specs
+yarn test:api          # only cypress/tests/api
+```
+
+Component tests run in Cypress with its own Vite dev server, so they need no running app:
+
+```shell
+yarn test:component:ci
+```
+
+> 🚩 **Note**
+>
+> `yarn test:unit:ci` rewrites [data/database.json](./data/database.json). Restore it with `git checkout data/database.json` afterwards rather than committing the change. To regenerate the seed itself, use `yarn db:seed` (which writes [data/database-seed.json](./data/database-seed.json)).
+
 ## Database
 
 - The local JSON database is located in [data/database.json](./data/database.json) and is managed with [lowdb].
