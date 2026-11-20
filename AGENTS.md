@@ -30,6 +30,20 @@ real-world Cypress testing. `README.md` describes it. The default branch is
   update its Cypress spec in the same change even if you cannot run it, and
   say in the pull request that it was not run.
 
+## Previews
+
+Every pull request gets a preview (`preview/Dockerfile`): the app and the
+API on one port, the API under `/api`.
+
+- The browser reaches the API through `apiUrl` from `src/utils/portUtils.ts`,
+  never a `http://localhost:...` of its own: a preview builds with
+  `VITE_API_URL=/api`.
+- The preview builds with no network, from the deps image that
+  `preview/Dockerfile`'s `FROM` names. When `yarn.lock`, `patches/` or
+  `preview/deps.Dockerfile` change, set that tag to the output of
+  `sh preview/deps-tag.sh`; CI's "Preview dependencies" fails until it matches,
+  and publishes the image.
+
 ## Rules
 
 - Keep the existing style: Prettier formats, ESLint checks. Run `yarn prettier`
