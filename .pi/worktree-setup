@@ -1,8 +1,7 @@
 #!/bin/sh
 # Fetch the locked dependencies for a fresh clone.
 # tehas runs this with sh from the worktree root, so it is POSIX sh.
-# Yarn 1 comes through corepack, at the version package.json pins. The Cypress
-# binary (about 500 MB) is skipped: the fast gate does not run Cypress.
+# Yarn 1 is in the factory's sandbox image. The Cypress binary (about 500 MB)
+# is skipped: the fast gate does not run Cypress.
 set -eu
-export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
-CYPRESS_INSTALL_BINARY=0 corepack yarn install --frozen-lockfile
+CYPRESS_INSTALL_BINARY=0 yarn install --frozen-lockfile

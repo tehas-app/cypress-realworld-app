@@ -21,7 +21,7 @@ real-world Cypress testing. `README.md` describes it. The default branch is
 
 - The fast gate is `.pi/verify-cmd`: `yarn types`, `yarn lint` and
   `yarn test:unit:ci`. All three must pass.
-- Yarn 1 through corepack (`corepack yarn ...`); never npm, and never change
+- Yarn 1 (in the sandbox image; `corepack yarn` elsewhere); never npm, and never change
   `yarn.lock` by hand.
 - `yarn test:unit:ci` rewrites `data/database.json`. Never commit that change
   unless the seed itself is the point: then change `data/database-seed.json`
