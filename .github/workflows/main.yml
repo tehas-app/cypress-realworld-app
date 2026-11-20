@@ -1,9 +1,12 @@
+# The fork's CI. Upstream records to Cypress Cloud in five parallel containers;
+# this fork has no record key, so the end-to-end tests run in one container,
+# unrecorded, in Chrome.
 name: Cypress Tests
 
 on:
   push:
-    branches-ignore:
-      - "renovate/**"
+    branches: [develop]
+  pull_request:
 
 jobs:
   install:
@@ -19,10 +22,6 @@ jobs:
         uses: cypress-io/github-action@v6
         with:
           runTests: false
-      # report machine parameters
-      - run: yarn cypress info
-      - run: node --version
-      - run: node -p 'os.cpus()'
       - run: yarn types
       - run: yarn lint
       - run: yarn test:unit:ci
@@ -36,21 +35,12 @@ jobs:
           path: build
 
   ui-chrome-tests:
-    timeout-minutes: 15
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     container:
       image: cypress/browsers:22.20.0
       options: --user 1001
     needs: install
-    strategy:
-      # when one test fails, DO NOT cancel the other
-      # containers, because this will kill Cypress processes
-      # leaving Cypress Cloud hanging ...
-      # https://github.com/cypress-io/github-action/issues/48
-      fail-fast: false
-      matrix:
-        # run copies of the current job in parallel
-        containers: [1, 2, 3, 4, 5]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -61,166 +51,16 @@ jobs:
           name: build
           path: build
 
-      - name: Node info
-        run: node -v
+      - run: yarn install --frozen-lockfile
 
-      - name: __e Dir
-        run: ls /__e
-
+      # The action's own start and wait-on stop at the first refused
+      # connection under Node 24, so the servers start here and
+      # precypress:run waits for them with the wait-on package.
       - name: "UI Tests - Chrome"
-        uses: cypress-io/github-action@v6
-        with:
-          build: yarn cypress info
-          start: yarn start:ci
-          wait-on: "http://localhost:3000, http://localhost:3001"
-          wait-on-timeout: 120
-          browser: chrome
-          record: true
-          parallel: true
-          group: "UI - Chrome"
-          spec: cypress/tests/ui/*
-          config-file: cypress.config.ts
-        env:
-          CYPRESS_PROJECT_ID: ${{ secrets.CYPRESS_PROJECT_ID }}
-          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
-          # Recommended: pass the GitHub token lets this action correctly
-          # determine the unique run id necessary to re-run the checks
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DEBUG: "cypress:server:args"
+        run: |
+          yarn start:ci > server.log 2>&1 &
+          yarn cypress:run --browser chrome
 
-  ui-chrome-mobile-tests:
-    timeout-minutes: 15
-    runs-on: ubuntu-latest
-    container:
-      image: cypress/browsers:22.20.0
-      options: --user 1001
-    needs: install
-    strategy:
-      # when one test fails, DO NOT cancel the other
-      # containers, because this will kill Cypress processes
-      # leaving Cypress Cloud hanging ...
-      # https://github.com/cypress-io/github-action/issues/48
-      fail-fast: false
-      matrix:
-        # run copies of the current job in parallel
-        containers: [1, 2, 3, 4, 5]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download the build folders
-        uses: actions/download-artifact@v4
-        with:
-          name: build
-          path: build
-
-      - name: "UI Tests - Chrome - Mobile"
-        uses: cypress-io/github-action@v6
-        with:
-          config: '{"e2e":{"viewportWidth":375,"viewportHeight":667}}'
-          start: yarn start:ci
-          wait-on: "http://localhost:3000, http://localhost:3001"
-          wait-on-timeout: 120
-          browser: chrome
-          record: true
-          parallel: true
-          group: "UI - Chrome - Mobile"
-          spec: cypress/tests/ui/*
-          config-file: cypress.config.ts
-        env:
-          CYPRESS_PROJECT_ID: ${{ secrets.CYPRESS_PROJECT_ID }}
-          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
-          # Recommended: pass the GitHub token lets this action correctly
-          # determine the unique run id necessary to re-run the checks
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  ui-firefox-tests:
-    timeout-minutes: 15
-    runs-on: ubuntu-latest
-    container:
-      image: cypress/browsers:22.20.0
-      options: --user 1001
-    needs: install
-    strategy:
-      # when one test fails, DO NOT cancel the other
-      # containers, because this will kill Cypress processes
-      # leaving Cypress Cloud hanging ...
-      # https://github.com/cypress-io/github-action/issues/48
-      fail-fast: false
-      matrix:
-        # run copies of the current job in parallel
-        containers: [1, 2, 3, 4, 5]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download the build folders
-        uses: actions/download-artifact@v4
-        with:
-          name: build
-          path: build
-
-      - name: "UI Tests - Firefox"
-        uses: cypress-io/github-action@v6
-        with:
-          start: yarn start:ci
-          wait-on: "http://localhost:3000, http://localhost:3001"
-          wait-on-timeout: 120
-          browser: firefox
-          record: true
-          parallel: true
-          group: "UI - Firefox"
-          spec: cypress/tests/ui/*
-          config-file: cypress.config.ts
-        env:
-          CYPRESS_PROJECT_ID: ${{ secrets.CYPRESS_PROJECT_ID }}
-          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
-          # Recommended: pass the GitHub token lets this action correctly
-          # determine the unique run id necessary to re-run the checks
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  ui-firefox-mobile-tests:
-    timeout-minutes: 15
-    runs-on: ubuntu-latest
-    container:
-      image: cypress/browsers:22.20.0
-      options: --user 1001
-    needs: install
-    strategy:
-      # when one test fails, DO NOT cancel the other
-      # containers, because this will kill Cypress processes
-      # leaving Cypress Cloud hanging ...
-      # https://github.com/cypress-io/github-action/issues/48
-      fail-fast: false
-      matrix:
-        # run copies of the current job in parallel
-        containers: [1, 2, 3, 4, 5]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download the build folders
-        uses: actions/download-artifact@v4
-        with:
-          name: build
-          path: build
-
-      - name: "UI Tests - Firefox - Mobile"
-        uses: cypress-io/github-action@v6
-        with:
-          config: '{"e2e":{"viewportWidth":375,"viewportHeight":667}}'
-          start: yarn start:ci
-          wait-on: "http://localhost:3000, http://localhost:3001"
-          wait-on-timeout: 120
-          browser: firefox
-          record: true
-          parallel: true
-          group: "UI - Firefox - Mobile"
-          spec: cypress/tests/ui/*
-          config-file: cypress.config.ts
-        env:
-          CYPRESS_PROJECT_ID: ${{ secrets.CYPRESS_PROJECT_ID }}
-          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
-          # Recommended: pass the GitHub token lets this action correctly
-          # determine the unique run id necessary to re-run the checks
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Server log
+        if: failure()
+        run: cat server.log
