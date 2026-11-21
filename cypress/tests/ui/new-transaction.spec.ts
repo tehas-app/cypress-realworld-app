@@ -20,7 +20,7 @@ describe("New Transaction", function () {
 
     cy.intercept("POST", "/transactions").as("createTransaction");
 
-    cy.intercept("GET", "/notifications").as("notifications");
+    cy.intercept("GET", "/notifications*").as("notifications");
     cy.intercept("GET", "/transactions/public").as("publicTransactions");
     cy.intercept("GET", "/transactions").as("personalTransactions");
     cy.intercept("PATCH", "/transactions/*").as("updateTransaction");

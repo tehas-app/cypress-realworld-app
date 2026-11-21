@@ -103,15 +103,13 @@ const NotificationsContainer: React.FC<Props> = ({ authService, notificationsSer
             checked={unreadOnly}
             onChange={(event) => setUnreadOnly(event.target.checked)}
             color="primary"
+            // The Switch's own input: FormControlLabel does not pass inputProps on.
+            inputProps={{ "data-test": "notifications-unread-only-input" } as object}
           />
         }
         label="Unread only"
-        // The issue names this handle. MUI puts unknown props on the
-        // FormControlLabel root, and the Switch's own input is visually hidden,
-        // so the e2e spec clicks the copy on the visible `inputProps` below and
-        // asserts the checked state on this one.
+        // The issue names this handle; MUI puts it on the FormControlLabel root.
         data-test="notifications-unread-only"
-        inputProps={{ "data-test": "notifications-unread-only-input" }}
       />
       <NotificationList
         notifications={visibleNotifications!}

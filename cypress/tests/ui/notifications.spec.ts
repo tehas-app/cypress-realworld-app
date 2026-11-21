@@ -78,10 +78,10 @@ describe("Notifications", function () {
       // The dismissed row stays in the list, dimmed and without its "Dismiss"
       // control, because the page shows read notifications by default. The
       // `-read` suffix on data-test marks it as such.
-      cy.getBySel(`[data-test$="-read"]`).should("have.length", 1);
-      cy.getBySelLike("notification-list-item")
-        .should("have.length", 9)
+      cy.get('[data-test^="notification-list-item-"][data-test$="-read"]')
+        .should("have.length", 1)
         .and("not.contain", "Dismiss");
+      cy.getBySelLike("notification-list-item").should("have.length", 9);
 
       cy.getBySelLike("notification-mark-read")
         .should("have.length", 8)
