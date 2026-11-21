@@ -605,7 +605,11 @@ export const getLikeBy = (key: string, value: any): Like => getBy(LIKE_TABLE, ke
 export const getLikesByObj = (query: object) => getAllByObj(LIKE_TABLE, query);
 
 export const getLikeById = (id: string): Like => getLikeBy("id", id);
-export const getLikesByTransactionId = (transactionId: string) => getLikesByObj({ transactionId });
+export const getLikesByTransactionId = (transactionId: string): Like[] =>
+  getLikesByObj({ transactionId });
+
+export const getLikeByUserIdAndTransactionId = (userId: string, transactionId: string): Like[] =>
+  getLikesByObj({ userId, transactionId });
 
 export const createLike = (userId: string, transactionId: string): Like => {
   const like = {
@@ -622,6 +626,11 @@ export const createLike = (userId: string, transactionId: string): Like => {
 };
 
 export const createLikes = (userId: string, transactionId: string) => {
+  const alreadyLiked = getLikeByUserIdAndTransactionId(userId, transactionId).length > 0;
+
+  // a user likes a transaction at most once: a repeat like changes nothing
+  if (alreadyLiked) return;
+
   const { senderId, receiverId } = getTransactionById(transactionId);
 
   const like = createLike(userId, transactionId);
