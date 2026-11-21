@@ -164,6 +164,31 @@ describe("User Sign-up and Login", function () {
     cy.visualSnapshot("Sign Up Submit Disabled");
   });
 
+  it("should sign in with a username that has a trailing space", function () {
+    cy.database("find", "users").then((user: User) => {
+      cy.login(`${user.username} `, "s3cret");
+    });
+    cy.location("pathname").should("equal", "/");
+    cy.visualSnapshot("Sign In With Trailing Space In Username");
+  });
+
+  it("should sign in through the API with a username that has a trailing space", function () {
+    cy.database("find", "users").then((user: User) => {
+      return cy.loginByApi(`${user.username} `, "s3cret");
+    });
+  });
+
+  it("should not trim the password when signing in", function () {
+    cy.database("find", "users").then((user: User) => {
+      cy.login(user.username, "s3cret ");
+    });
+
+    cy.getBySel("signin-error")
+      .should("be.visible")
+      .and("have.text", "Username or password is invalid");
+    cy.visualSnapshot("Sign In, Password With Trailing Space Is Not Trimmed");
+  });
+
   it("should error for an invalid user", function () {
     cy.login("invalidUserName", "invalidPa$$word");
 
