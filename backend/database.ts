@@ -219,6 +219,8 @@ export const getContactsByUsername = (username: string) =>
 
 export const getContactsByUserId = (userId: string): Contact[] => getContactsBy("userId", userId);
 
+export const getContactById = (contactId: string) => getContactBy("id", contactId);
+
 export const createContact = (contact: Contact) => {
   db.get(CONTACT_TABLE).push(contact).write();
 
