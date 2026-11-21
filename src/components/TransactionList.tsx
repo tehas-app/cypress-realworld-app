@@ -30,6 +30,8 @@ export interface TransactionListProps {
   loadNextPage: Function;
   pagination: TransactionPagination;
   filterComponent: ReactNode;
+  // rendered beside the filters, so only the tab composing it gets the control
+  exportComponent?: ReactNode;
 }
 
 const TransactionList: React.FC<TransactionListProps> = ({
@@ -40,6 +42,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
   loadNextPage,
   pagination,
   filterComponent,
+  exportComponent,
 }) => {
   const showEmptyList = !isLoading && transactions?.length === 0;
   const showSkeleton = isLoading && isEmpty(pagination);
@@ -47,6 +50,11 @@ const TransactionList: React.FC<TransactionListProps> = ({
   return (
     <StyledPaper className={classes.paper}>
       {filterComponent}
+      {exportComponent && (
+        <Grid container justifyContent="flex-end" data-test="transaction-list-export-row">
+          <Grid item>{exportComponent}</Grid>
+        </Grid>
+      )}
       <ListSubheader component="div">{header}</ListSubheader>
       {showSkeleton && <SkeletonList />}
       {transactions.length > 0 && (
