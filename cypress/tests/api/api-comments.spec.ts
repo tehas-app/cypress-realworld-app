@@ -76,8 +76,9 @@ describe("Comments API", function () {
           expect(response.status).to.eq(204);
         });
 
-        cy.database("find", "comments", { id: comment.id }).then((deleted: Comment) => {
-          expect(deleted).to.not.exist;
+        // find answers undefined for no match, which cy.task refuses: filter instead
+        cy.database("filter", "comments", { id: comment.id }).then((left: Comment[]) => {
+          expect(left).to.have.length(0);
         });
       });
     });
@@ -90,7 +91,11 @@ describe("Comments API", function () {
         // signed back in as the user who did not write the comment
         cy.loginByApi(ctx.authenticatedUser!.username);
 
-        cy.request("DELETE", `${apiComments}/${transactionId}/${comment.id}`).then((response) => {
+        cy.request({
+          method: "DELETE",
+          url: `${apiComments}/${transactionId}/${comment.id}`,
+          failOnStatusCode: false,
+        }).then((response) => {
           expect(response.status).to.eq(403);
         });
 
