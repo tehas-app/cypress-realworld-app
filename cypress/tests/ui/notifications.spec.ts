@@ -248,6 +248,201 @@ describe("Notifications", function () {
     });
   });
 
+  describe("the Unread only toggle", function () {
+    const toggleSelector = "notifications-unread-only";
+    const switchSelector = "notifications-unread-only-switch";
+    // MUI's Switch spreads its props onto the SwitchBase <span>, so checkedness
+    // has to be asserted on the real checkbox rendered inside it.
+    const inputSelector = "notifications-unread-only-input";
+    const sidenavHomeSelector = "sidenav-home";
+    const sidenavNotificationsSelector = "sidenav-notifications";
+
+    // Every row the seed holds is unread and a Dismiss PATCHes then refetches,
+    // so with the real API the filter can only ever drop rows the server already
+    // dropped. Stubbing the GET is what makes the filter observable: the page
+    // keeps serving rows the server has marked read, which is exactly the input
+    // the client-side filter exists for. Leaving the route and coming back
+    // remounts NotificationsContainer, and its FETCH is the GET that gets stubbed
+    // here; intercepting earlier would only replace the rows the previous case
+    // already loaded. The rows are like-notifications, which render as
+    // "<name> liked a transaction.", so the name picks out a row by content.
+    const stubbedResults = (ids: string[]) =>
+      ids.map((id, index) => ({
+        id,
+        uuid: `00000000-0000-4000-8000-00000000000${index}`,
+        userId: ctx.userA.id,
+        transactionId: `transaction-${id}`,
+        likeId: `like-${id}`,
+        isRead: false,
+        createdAt: new Date().toISOString(),
+        modifiedAt: new Date().toISOString(),
+        userFullName: `${ctx.userB.firstName} ${ctx.userB.lastName}`,
+      }));
+
+    // The toggle only renders on /notifications and the notifications service
+    // lives in App, so switching away and back is what remounts
+    // NotificationsContainer; its mount effect is the FETCH that picks up the
+    // stub. Re-clicking the notifications item would not: the component never
+    // unmounts, so no effect re-runs and no FETCH is sent.
+    const refetchStubbedNotifications = () => {
+      cy.getBySel(sidenavHomeSelector).click();
+      cy.location("pathname").should("equal", "/");
+      // clicking a drawer item closes the drawer on xs, so it has to be reopened
+      // before the notifications leg is clickable
+      if (isMobile()) {
+        cy.getBySel("sidenav-toggle").click();
+      }
+      cy.getBySel(sidenavNotificationsSelector).click();
+      cy.location("pathname").should("equal", "/notifications");
+    };
+
+    beforeEach(function () {
+      cy.loginByXstate(ctx.userA.username);
+      cy.wait("@getNotifications");
+
+      if (isMobile()) {
+        cy.getBySel("sidenav-toggle").click();
+      }
+      cy.getBySel("sidenav-notifications").click();
+      cy.location("pathname").should("equal", "/notifications");
+      cy.getBySel("notifications-list").should("exist");
+    });
+
+    it("shows every notification the API returns when the toggle is off", function () {
+      cy.getBySel(toggleSelector).should("exist").and("contain", "Unread only");
+      cy.getBySelLike("notification-list-item").should("have.length", 9);
+      cy.getBySel(inputSelector).should("have.attr", "type", "checkbox").and("not.be.checked");
+      cy.visualSnapshot("Unread only toggle off by default");
+    });
+
+    it("hides the notifications marked as read", function () {
+      cy.getBySelLike("notification-list-item")
+        .should("have.length", 9)
+        .first()
+        .invoke("attr", "data-test")
+        .then((dataTest) => {
+          const firstId = String(dataTest).replace("notification-list-item-", "");
+
+          cy.getBySel(`notification-mark-read-${firstId}`).click({ force: true });
+          cy.wait("@updateNotification");
+
+          // the PATCH refetches, so the read row is dropped by the API and eight
+          // unread rows remain
+          cy.getBySelLike("notification-list-item").should("have.length", 8);
+
+          cy.getBySel(switchSelector).click({ force: true });
+          cy.getBySel(inputSelector).should("be.checked");
+
+          // the toggle filters those eight, so the list looks the same and the
+          // dismissed row is still absent
+          cy.getBySelLike("notification-list-item")
+            .should("have.length", 8)
+            .first()
+            .invoke("attr", "data-test")
+            .should("not.equal", `notification-list-item-${firstId}`);
+          cy.visualSnapshot("Unread only hides the read notification");
+        });
+    });
+
+    it("shows the notifications again when switched back off", function () {
+      cy.getBySelLike("notification-list-item")
+        .should("have.length", 9)
+        .first()
+        .invoke("attr", "data-test")
+        .then((dataTest) => {
+          const firstId = String(dataTest).replace("notification-list-item-", "");
+
+          cy.getBySel(`notification-mark-read-${firstId}`).click({ force: true });
+          cy.wait("@updateNotification");
+
+          cy.getBySel(switchSelector).click({ force: true });
+          cy.getBySel(inputSelector).should("be.checked");
+          cy.getBySelLike("notification-list-item").should("have.length", 8);
+
+          cy.getBySel(switchSelector).click({ force: true });
+          cy.getBySel(inputSelector).should("not.be.checked");
+
+          // the toggle is back off, so the list is the API's again and still
+          // lacks the row the server dropped
+          cy.getBySelLike("notification-list-item")
+            .should("have.length", 8)
+            .each(($item) => {
+              cy.wrap($item)
+                .invoke("attr", "data-test")
+                .should("match", /^notification-list-item-/);
+            });
+          cy.getBySel(`notification-list-item-${firstId}`).should("not.exist");
+          cy.getBySel("empty-list-header").should("not.exist");
+          cy.visualSnapshot("Unread only toggle switched back off");
+        });
+    });
+
+    it("hides the read rows a response still carries", function () {
+      // n1 is already read when the page takes the list, so it is the row only
+      // this filter can remove
+      const rows = stubbedResults(["n1", "n2", "n3", "n4"]);
+      rows[0].isRead = true;
+
+      cy.intercept("GET", "/notifications*", { body: { results: rows } }).as(
+        "stubbedNotifications"
+      );
+
+      refetchStubbedNotifications();
+
+      // off, the filter passes everything through, including the read row, whose
+      // text names the user who liked the transaction
+      cy.getBySelLike("notification-list-item")
+        .should("have.length", 4)
+        .first()
+        .should("contain", "liked")
+        .and("contain", `${ctx.userB.firstName} ${ctx.userB.lastName}`);
+
+      cy.getBySel(switchSelector).click({ force: true });
+      cy.getBySel(inputSelector).should("be.checked");
+
+      cy.getBySel("notification-list-item-n1").should("not.exist");
+      cy.getBySelLike("notification-list-item")
+        .should("have.length", 3)
+        .each(($item) => {
+          cy.wrap($item)
+            .invoke("attr", "data-test")
+            .should("not.equal", "notification-list-item-n1");
+        });
+      cy.visualSnapshot("Unread only hides the read row in the response");
+
+      cy.getBySel(switchSelector).click({ force: true });
+      cy.getBySel(inputSelector).should("not.be.checked");
+
+      // back off, the read row shows again without another GET
+      cy.getBySel("notification-list-item-n1").should("exist");
+      cy.getBySelLike("notification-list-item").should("have.length", 4);
+      cy.visualSnapshot("Unread only switched back off shows the read row");
+    });
+
+    it("says no unread notifications once every response row is read", function () {
+      const rows = stubbedResults(["n1", "n2", "n3", "n4"]);
+      rows.forEach((row) => (row.isRead = true));
+
+      cy.intercept("GET", "/notifications*", { body: { results: rows } }).as(
+        "stubbedNotifications"
+      );
+
+      refetchStubbedNotifications();
+
+      // off, every row still shows, so the list is not empty yet
+      cy.getBySelLike("notification-list-item").should("have.length", 4);
+
+      // every row the page holds is read, so the filter empties the list and the
+      // empty state names the filtered entity
+      cy.getBySel(switchSelector).click({ force: true });
+      cy.getBySel(inputSelector).should("be.checked");
+
+      cy.getBySel("notifications-list").should("not.exist");
+      cy.getBySel("empty-list-header").should("contain", "No unread notifications");
+      cy.visualSnapshot("No unread notifications");
+    });
+  });
+
   it("renders an empty notifications state", function () {
     cy.intercept("GET", "/notifications", []).as("notifications");
 
