@@ -4,6 +4,7 @@ import express from "express";
 import {
   createNotifications,
   updateNotificationById,
+  setNotificationsAsReadForUserId,
   getUnreadNotificationsByUserId,
 } from "./database";
 import { ensureAuthenticated, validateMiddleware } from "./helpers";
@@ -23,6 +24,14 @@ router.get("/", ensureAuthenticated, (req, res) => {
 
   res.status(200);
   res.json({ results: notifications });
+});
+
+//PATCH /notifications - mark every unread notification of the signed-in user read
+router.patch("/", ensureAuthenticated, (req, res) => {
+  /* istanbul ignore next */
+  setNotificationsAsReadForUserId(req.user?.id!);
+
+  res.sendStatus(204);
 });
 
 //POST /notifications/bulk
