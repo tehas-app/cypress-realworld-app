@@ -69,8 +69,42 @@ describe("Contacts API", function () {
   });
   context("DELETE /contacts/:contactId", function () {
     it("deletes a contact", function () {
-      cy.request("DELETE", `${apiContacts}/${ctx.contact!.id}`).then((response) => {
+      const { username } = ctx.authenticatedUser!;
+      const contactId = ctx.contact!.id;
+
+      cy.request("DELETE", `${apiContacts}/${contactId}`).then((response) => {
         expect(response.status).to.eq(200);
+
+        return cy.request("GET", `${apiContacts}/${username}`).then(({ body }) => {
+          expect(body.contacts.some((contact: Contact) => contact.id === contactId)).to.eq(false);
+        });
+      });
+    });
+
+    it("does not let another user delete someone else's contact", function () {
+      const otherUser = ctx.allUsers!.find((user: User) => user.id !== ctx.authenticatedUser!.id)!;
+
+      cy.loginByApi(otherUser.username).then(() =>
+        cy
+          .request({
+            method: "DELETE",
+            url: `${apiContacts}/${ctx.contact!.id}`,
+            failOnStatusCode: false,
+          })
+          .then((response) => {
+            expect(response.status).to.eq(403);
+          })
+      );
+    });
+
+    it("errors when the contact does not exist", function () {
+      // a well-formed short id that no seeded contact carries
+      cy.request({
+        method: "DELETE",
+        url: `${apiContacts}/zzzzzzzzzzzzzzz`,
+        failOnStatusCode: false,
+      }).then((response) => {
+        expect(response.status).to.eq(404);
       });
     });
   });

@@ -89,6 +89,11 @@ const BANK_TRANSFER_TABLE = "banktransfers";
 // DATABASE_FILE points the tests at a copy (src/test-database.ts); the app
 // itself uses data/database.json.
 const databaseFile = process.env.DATABASE_FILE || path.join(__dirname, "../data/database.json");
+// data/database.json is not tracked (every run of the API rewrites it): a
+// checkout starts it from the seed.
+if (!fs.existsSync(databaseFile)) {
+  fs.copyFileSync(path.join(__dirname, "../data/database-seed.json"), databaseFile);
+}
 const adapter = new FileSync<DbSchema>(databaseFile);
 
 const db = low(adapter);
@@ -218,6 +223,8 @@ export const getContactsByUsername = (username: string) =>
   flow(getUserByUsername, getUserId, getContactsByUserId)(username);
 
 export const getContactsByUserId = (userId: string): Contact[] => getContactsBy("userId", userId);
+
+export const getContactById = (contactId: string) => getContactBy("id", contactId);
 
 export const createContact = (contact: Contact) => {
   db.get(CONTACT_TABLE).push(contact).write();
@@ -635,13 +642,11 @@ export const createLikes = (userId: string, transactionId: string) => {
 
   const like = createLike(userId, transactionId);
 
-  /* istanbul ignore next */
-  if (userId !== senderId || userId !== receiverId) {
+  // Notify the parties of the transaction, never the user who liked it.
+  if (userId !== senderId) {
     createLikeNotification(senderId, transactionId, like.id);
-    createLikeNotification(receiverId, transactionId, like.id);
-  } else if (userId === senderId) {
-    createLikeNotification(senderId, transactionId, like.id);
-  } else {
+  }
+  if (userId !== receiverId) {
     createLikeNotification(receiverId, transactionId, like.id);
   }
 };

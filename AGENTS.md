@@ -23,8 +23,9 @@ real-world Cypress testing. `README.md` describes it. The default branch is
   `yarn test:unit:ci`. All three must pass.
 - Yarn 1 (in the sandbox image; `corepack yarn` elsewhere); never npm, and never change
   `yarn.lock` by hand.
-- `yarn test:unit:ci` rewrites `data/database.json`. Never commit that change
-  unless the seed itself is the point: then change `data/database-seed.json`
+- `data/database.json` is not tracked: the API makes it from
+  `data/database-seed.json` and rewrites it as it runs, and the unit tests use a
+  temporary copy. To change the starting data, change `data/database-seed.json`
   through `yarn db:seed` and say so.
 - End-to-end tests need `yarn start:ci` and a browser. When you change a flow,
   update its Cypress spec in the same change even if you cannot run it, and
