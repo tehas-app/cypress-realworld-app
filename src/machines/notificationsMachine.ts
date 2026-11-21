@@ -1,4 +1,4 @@
-import { isEmpty, omit } from "lodash/fp";
+import { omit } from "lodash/fp";
 import { dataMachine } from "./dataMachine";
 import { httpClient } from "../utils/asyncUtils";
 import { apiUrl } from "../utils/portUtils";
@@ -24,14 +24,15 @@ export const notificationsMachine = dataMachine("notifications").withConfig({
   services: {
     fetchData: async (ctx, event: any) => {
       const payload = omit("type", event);
-      // A FETCH that carries filters (an id, a page) still gets `all`: the page
-      // asks for read rows whichever shape the request takes. `isEmpty` keeps
-      // the empty-params case from sending `params: {}`.
-      const params =
-        event.type === "FETCH" ? { ...payload, ...ALL_NOTIFICATIONS_PARAM } : undefined;
-      const resp = await httpClient.get(`${apiUrl}/notifications`, {
-        params: isEmpty(params) ? undefined : params,
-      });
+      // Every fetch asks for read rows too, the refetch after an update
+      // included (it is not a FETCH event): the page dims read rows and the
+      // NavBar badge counts the unread ones itself. A FETCH's own filters
+      // (an id, a page) go along.
+      const params = {
+        ...(event.type === "FETCH" ? payload : {}),
+        ...ALL_NOTIFICATIONS_PARAM,
+      };
+      const resp = await httpClient.get(`${apiUrl}/notifications`, { params });
       return resp.data;
     },
     // The shared `dataMachine` has a single `UPDATE` state and `DataEvents`
