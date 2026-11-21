@@ -633,13 +633,11 @@ export const createLikes = (userId: string, transactionId: string) => {
 
   const like = createLike(userId, transactionId);
 
-  /* istanbul ignore next */
-  if (userId !== senderId || userId !== receiverId) {
+  // Notify the parties of the transaction, never the user who liked it.
+  if (userId !== senderId) {
     createLikeNotification(senderId, transactionId, like.id);
-    createLikeNotification(receiverId, transactionId, like.id);
-  } else if (userId === senderId) {
-    createLikeNotification(senderId, transactionId, like.id);
-  } else {
+  }
+  if (userId !== receiverId) {
     createLikeNotification(receiverId, transactionId, like.id);
   }
 };
