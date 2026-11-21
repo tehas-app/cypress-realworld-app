@@ -39,8 +39,11 @@ export default defineConfig(({ mode }) => {
     test: {
       environment: "jsdom",
       setupFiles: "./src/setup-tests.js",
+      // The tests run against a copy of data/database-seed.json in a temporary
+      // directory, so they leave the tracked data/database.json alone.
+      globalSetup: "./src/test-database.ts",
       exclude: ["node_modules", "cypress", "dist"],
-      fileParallelism: false, // #1666: Run tests sequentially to avoid race conditions with shared database.json file.
+      fileParallelism: false, // #1666: Run tests sequentially to avoid race conditions with the shared database file.
     },
   };
 });

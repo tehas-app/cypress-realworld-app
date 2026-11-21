@@ -86,7 +86,9 @@ const COMMENT_TABLE = "comments";
 const NOTIFICATION_TABLE = "notifications";
 const BANK_TRANSFER_TABLE = "banktransfers";
 
-const databaseFile = path.join(__dirname, "../data/database.json");
+// DATABASE_FILE points the tests at a copy (src/test-database.ts); the app
+// itself uses data/database.json.
+const databaseFile = process.env.DATABASE_FILE || path.join(__dirname, "../data/database.json");
 const adapter = new FileSync<DbSchema>(databaseFile);
 
 const db = low(adapter);
