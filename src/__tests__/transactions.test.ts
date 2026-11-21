@@ -15,6 +15,7 @@ import {
   getPublicTransactionsDefaultSort,
   getUserById,
   getBankTransferByTransactionId,
+  getTransactionsForUserForApi,
 } from "../../backend/database";
 
 import {
@@ -24,9 +25,11 @@ import {
   DefaultPrivacyLevel,
   BankTransferType,
   TransactionPayload,
+  TransactionResponseItem,
   TransactionStatus,
 } from "../../src/models";
 import { getFakeAmount } from "../../src/utils/transactionUtils";
+import { serializeTransactionsCsv, formatDateForExport } from "../../src/utils/csvUtils";
 import { totalTransactions, transactionsPerUser } from "../../scripts/seedDataUtils";
 
 describe("Transactions", () => {
@@ -208,6 +211,68 @@ describe("Transactions", () => {
     expect(senderName).toBe(`${sender.firstName} ${sender.lastName}`);
     expect(transaction.likes).toBeDefined();
     expect(transaction.comments).toBeDefined();
+  });
+
+  it("should export a user's transactions as CSV, filtered by amount range", () => {
+    const userToLookup: User = getAllUsers()[0];
+
+    const unfiltered = getTransactionsForUserForApi(userToLookup.id, {});
+    const amountMin = 10000;
+    const amountMax = 20000;
+    const filtered = getTransactionsForUserForApi(userToLookup.id, {
+      amountMin,
+      amountMax,
+    });
+
+    expect(unfiltered.length).toBeGreaterThan(filtered.length);
+    expect(filtered.length).toBeGreaterThan(0);
+
+    const csv = serializeTransactionsCsv(filtered);
+    const [header, ...rows] = csv.split("\r\n");
+
+    expect(header).toBe("date,description,sender,receiver,amount,status");
+    expect(rows).toHaveLength(filtered.length);
+
+    rows.forEach((row, index) => {
+      const cells = row.split(",");
+      expect(cells[2]).toBe(filtered[index].senderName);
+      expect(cells[3]).toBe(filtered[index].receiverName);
+      expect(cells[4]).toBe((filtered[index].amount / 100).toFixed(2));
+      expect(filtered[index].amount).toBeGreaterThanOrEqual(amountMin);
+      expect(filtered[index].amount).toBeLessThan(amountMax);
+    });
+  });
+
+  it("should export a user's transactions as CSV, filtered by date range", () => {
+    const userToLookup: User = getAllUsers()[0];
+
+    const dateRangeStart = new Date("Mar 06 2024 12:00:00 GMT").toISOString();
+    const dateRangeEnd = new Date("Mar 07 2024 23:59:59 GMT").toISOString();
+
+    const all = getTransactionsForUserForApi(userToLookup.id, {});
+    const filtered = getTransactionsForUserForApi(userToLookup.id, {
+      dateRangeStart,
+      dateRangeEnd,
+    });
+    const expected = all.filter(
+      (transaction: TransactionResponseItem) =>
+        new Date(transaction.createdAt) >= new Date(dateRangeStart) &&
+        new Date(transaction.createdAt) <= new Date(dateRangeEnd)
+    );
+
+    expect(filtered.length).toBeGreaterThan(0);
+    expect(filtered.length).toBeLessThan(all.length);
+    expect(filtered.length).toBe(expected.length);
+
+    const csv = serializeTransactionsCsv(filtered);
+    const [header, ...rows] = csv.split("\r\n");
+
+    expect(header).toBe("date,description,sender,receiver,amount,status");
+    expect(rows).toHaveLength(filtered.length);
+
+    rows.forEach((row, index) => {
+      expect(row.startsWith(`${formatDateForExport(filtered[index].modifiedAt)},`)).toBe(true);
+    });
   });
 
   it.skip("should create a payment and withdrawal (bank transfer) for remaining balance", () => {
