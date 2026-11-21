@@ -89,6 +89,11 @@ const BANK_TRANSFER_TABLE = "banktransfers";
 // DATABASE_FILE points the tests at a copy (src/test-database.ts); the app
 // itself uses data/database.json.
 const databaseFile = process.env.DATABASE_FILE || path.join(__dirname, "../data/database.json");
+// data/database.json is not tracked (every run of the API rewrites it): a
+// checkout starts it from the seed.
+if (!fs.existsSync(databaseFile)) {
+  fs.copyFileSync(path.join(__dirname, "../data/database-seed.json"), databaseFile);
+}
 const adapter = new FileSync<DbSchema>(databaseFile);
 
 const db = low(adapter);
