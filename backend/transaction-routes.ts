@@ -23,6 +23,7 @@ import {
   isTransactionPublicQSValidator,
 } from "./validators";
 import { getPaginatedItems } from "../src/utils/transactionUtils";
+import { serializeTransactionsCsv } from "../src/utils/csvUtils";
 const router = express.Router();
 
 // Routes
@@ -131,6 +132,28 @@ router.get(
       },
       results: paginatedItems,
     });
+  }
+);
+
+//GET /transactions/export.csv - scoped user, auth-required
+// before "/:transactionId", which would otherwise swallow "export.csv" as an id
+router.get(
+  "/export.csv",
+  ensureAuthenticated,
+  validateMiddleware([
+    sanitizeTransactionStatus,
+    sanitizeRequestStatus,
+    ...isTransactionQSValidator,
+  ]),
+  (req, res) => {
+    /* istanbul ignore next */
+    const transactions = getTransactionsForUserForApi(req.user?.id!, req.query);
+    const csv = serializeTransactionsCsv(transactions);
+
+    res.status(200);
+    res.type("text/csv");
+    res.set("Content-Disposition", 'attachment; filename="transactions.csv"');
+    res.send(csv);
   }
 );
 

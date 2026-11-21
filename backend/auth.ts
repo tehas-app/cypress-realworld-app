@@ -10,7 +10,9 @@ const router = express.Router();
 // configure passport for local strategy
 passport.use(
   new LocalStrategy(function (username: string, password: string, done: Function) {
-    const user = getUserBy("username", username);
+    // A username pasted or autocompleted with surrounding whitespace still identifies the
+    // same user; the password below is compared verbatim.
+    const user = getUserBy("username", username.trim());
 
     const failureMessage = "Incorrect username or password.";
     if (!user) {

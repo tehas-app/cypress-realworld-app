@@ -224,6 +224,8 @@ export const getContactsByUsername = (username: string) =>
 
 export const getContactsByUserId = (userId: string): Contact[] => getContactsBy("userId", userId);
 
+export const getContactById = (contactId: string) => getContactBy("id", contactId);
+
 export const createContact = (contact: Contact) => {
   db.get(CONTACT_TABLE).push(contact).write();
 
@@ -610,7 +612,11 @@ export const getLikeBy = (key: string, value: any): Like => getBy(LIKE_TABLE, ke
 export const getLikesByObj = (query: object) => getAllByObj(LIKE_TABLE, query);
 
 export const getLikeById = (id: string): Like => getLikeBy("id", id);
-export const getLikesByTransactionId = (transactionId: string) => getLikesByObj({ transactionId });
+export const getLikesByTransactionId = (transactionId: string): Like[] =>
+  getLikesByObj({ transactionId });
+
+export const getLikeByUserIdAndTransactionId = (userId: string, transactionId: string): Like[] =>
+  getLikesByObj({ userId, transactionId });
 
 export const createLike = (userId: string, transactionId: string): Like => {
   const like = {
@@ -627,17 +633,20 @@ export const createLike = (userId: string, transactionId: string): Like => {
 };
 
 export const createLikes = (userId: string, transactionId: string) => {
+  const alreadyLiked = getLikeByUserIdAndTransactionId(userId, transactionId).length > 0;
+
+  // a user likes a transaction at most once: a repeat like changes nothing
+  if (alreadyLiked) return;
+
   const { senderId, receiverId } = getTransactionById(transactionId);
 
   const like = createLike(userId, transactionId);
 
-  /* istanbul ignore next */
-  if (userId !== senderId || userId !== receiverId) {
+  // Notify the parties of the transaction, never the user who liked it.
+  if (userId !== senderId) {
     createLikeNotification(senderId, transactionId, like.id);
-    createLikeNotification(receiverId, transactionId, like.id);
-  } else if (userId === senderId) {
-    createLikeNotification(senderId, transactionId, like.id);
-  } else {
+  }
+  if (userId !== receiverId) {
     createLikeNotification(receiverId, transactionId, like.id);
   }
 };
