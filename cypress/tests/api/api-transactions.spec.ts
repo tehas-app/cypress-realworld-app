@@ -40,13 +40,19 @@ describe("Transactions API", function () {
       ctx.transactionId = transaction.id;
     });
 
-    cy.database("filter", "transactions", {
-      senderId: ctx.authenticatedUser!.id,
-      receiverId: ctx.receiver!.id,
-      requestStatus: "pending",
-    }).then((transactions: Transaction[]) => {
-      ctx.pendingRequestId = transactions[0].id;
-    });
+    // ctx is filled when the users' query runs, after this hook has queued
+    // its commands: read it inside a then, not while queueing.
+    cy.then(() =>
+      cy
+        .database("filter", "transactions", {
+          senderId: ctx.authenticatedUser!.id,
+          receiverId: ctx.receiver!.id,
+          requestStatus: "pending",
+        })
+        .then((transactions: Transaction[]) => {
+          ctx.pendingRequestId = transactions[0].id;
+        })
+    );
 
     cy.database("find", "notifications").then((notification: NotificationType) => {
       ctx.notificationId = notification.id;
