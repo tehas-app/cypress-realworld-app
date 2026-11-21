@@ -6,9 +6,10 @@ import {
   getTransactionsByUserId,
   createComment,
   getCommentsByTransactionId,
+  removeCommentById,
 } from "../../backend/database";
 
-import { User, Transaction } from "../../src/models";
+import { User, Transaction, Comment } from "../../src/models";
 
 describe("Comments", () => {
   beforeEach(() => {
@@ -36,5 +37,19 @@ describe("Comments", () => {
     const comments = getCommentsByTransactionId(transaction.id);
 
     expect(comments[0].transactionId).toBe(transaction.id);
+  });
+
+  it("should delete a comment for a transaction", () => {
+    const user: User = getAllUsers()[0];
+    const transactions: Transaction[] = getTransactionsByUserId(user.id);
+    const transaction = transactions[0];
+
+    const comment = createComment(user.id, transaction.id, "This comment gets deleted");
+
+    removeCommentById(comment.id);
+
+    const comments = getCommentsByTransactionId(transaction.id);
+
+    expect(comments.some((existing: Comment) => existing.id === comment.id)).toBe(false);
   });
 });
