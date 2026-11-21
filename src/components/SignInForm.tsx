@@ -101,7 +101,8 @@ const SignInForm: React.FC<Props> = ({ authService }) => {
           onSubmit={async (values, { setSubmitting }) => {
             setSubmitting(true);
 
-            signInPending(values);
+            // Trim the username the way the API's local strategy does; never trim the password.
+            signInPending({ ...values, username: values.username.trim() });
           }}
         >
           {({ isValid, isSubmitting }) => (
