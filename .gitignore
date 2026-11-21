@@ -52,3 +52,6 @@ amplifytools.xcconfig
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# The API rewrites it; backend/database.ts starts it from database-seed.json.
+/data/database.json
