@@ -75,6 +75,37 @@ describe("Transaction View", function () {
     cy.visualSnapshot("Comment on Transaction");
   });
 
+  it("deletes the signed-in user's own comment", function () {
+    // { force: true } is a workaround for https://github.com/cypress-io/cypress/issues/29776
+    cy.getBySelLike("transaction-item").first().click({ force: true });
+    cy.wait("@getTransaction");
+
+    cy.getBySelLike("comment-input").type("Thank you!{enter}");
+    cy.getBySelLike("comment-input").type("This comment gets deleted{enter}");
+    cy.getBySelLike("comments-list").children().should("have.length", 2);
+
+    // both comments are the user's own: delete the second, newest last
+    cy.getBySelLike("comments-list")
+      .children()
+      .last()
+      .find('[data-test^="comment-delete-"]')
+      .click();
+    cy.getBySel("comment-delete-confirm").click();
+
+    cy.getBySelLike("comments-list")
+      .children()
+      .should("have.length", 1)
+      .and("not.contain", "This comment gets deleted");
+    cy.getBySelLike("comments-list").children().contains("Thank you!");
+
+    cy.reload();
+    cy.getBySelLike("comments-list")
+      .children()
+      .should("have.length", 1)
+      .and("not.contain", "This comment gets deleted");
+    cy.visualSnapshot("Comment Deleted");
+  });
+
   it("accepts a transaction request", function () {
     cy.visit(`/transaction/${ctx.transactionRequest!.id}`);
     cy.wait("@getTransaction");

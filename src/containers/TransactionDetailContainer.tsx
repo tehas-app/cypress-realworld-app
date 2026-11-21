@@ -31,6 +31,9 @@ const TransactionDetailsContainer: React.FC<Props> = ({ authService }) => {
 
   const transactionUpdate = (payload: any) => sendTransactionDetail("UPDATE", payload);
 
+  const commentDelete = (payload: { transactionId: string; commentId: string }) =>
+    sendTransactionDetail("DELETE", payload);
+
   const transaction = first(transactionDetailState.context?.results);
   const currentUser = authState?.context?.user;
 
@@ -48,6 +51,7 @@ const TransactionDetailsContainer: React.FC<Props> = ({ authService }) => {
           transactionLike={transactionLike}
           transactionComment={transactionComment}
           transactionUpdate={transactionUpdate}
+          commentDelete={commentDelete}
           currentUser={currentUser}
         />
       )}
