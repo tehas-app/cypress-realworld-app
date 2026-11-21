@@ -26,18 +26,26 @@ const MarginHonoringDiv = styled("div")(({ theme }) => ({
   marginTop: theme.spacing(1),
 }));
 
-const phoneRegExp =
-  /^((\\+[1-9]{1,4}[ \\-]*)|(\\([0-9]{2,3}\\)[ \\-]*)|([0-9]{2,4})[ \\-]*)*?[0-9]{3,4}?[ \\-]*[0-9]{3,4}?$/;
+// A phone number is ten digits, and nothing else: spaces, dots, dashes and
+// parentheses may sit between the digits. backend/validators.ts enforces the
+// same rule on PATCH /users/:userId.
+const phoneRegExp = /^[\d-. ()]*\d$/;
+const tenDigits = (value: string) => (String(value).match(/\d/g) ?? []).length === 10;
 
 const DefaultPrivacyLevelValues = Object.values(DefaultPrivacyLevel);
 
 const validationSchema = object({
   firstName: string().required("Enter a first name"),
   lastName: string().required("Enter a last name"),
-  email: string().email("Must contain a valid email address").required("Enter an email address"),
+  email: string()
+    .trim()
+    .required("Enter an email address")
+    .email("Must contain a valid email address"),
   phoneNumber: string()
+    .trim()
+    .required("Enter a phone number")
     .matches(phoneRegExp, "Phone number is not valid")
-    .required("Enter a phone number"),
+    .test("ten-digits", "Phone number is not valid", tenDigits),
   defaultPrivacyLevel: mixed<DefaultPrivacyLevel>().oneOf(DefaultPrivacyLevelValues),
 });
 

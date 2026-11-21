@@ -1,5 +1,6 @@
 import { body, check, oneOf, query, sanitizeQuery } from "express-validator";
 import { isValid } from "shortid";
+import isEmail from "validator/lib/isEmail";
 import {
   TransactionStatus,
   TransactionRequestStatus,
@@ -16,6 +17,18 @@ const NotificationsTypeValues = Object.values(NotificationsType);
 // Validators
 
 const isShortId = (value: string) => isValid(value);
+
+// Same rule as UserSettingsForm: exactly ten digits, separators between them allowed.
+const isPhoneNumber = (value: string) =>
+  /^[\d-. ()]*\d$/.test(value) && (value.match(/\d/g) ?? []).length === 10;
+
+// express-validator's optional({ checkFalsy: true }) skips the validators *and* the
+// sanitizers that follow it, so a value of only whitespace never reaches .trim() and is
+// written to the record as-is. Collapsing it to undefined first makes optional() skip the
+// field altogether, and updateUserById's lodash assign then leaves the stored value alone
+// instead of overwriting it with blank text.
+const trimToUndefined = (value: unknown) =>
+  typeof value === "string" && value.trim() === "" ? undefined : value;
 
 export const shortIdValidation = (key: string) => check(key).custom(isShortId);
 
@@ -41,8 +54,20 @@ export const isUserValidator = [
   check("lastName").optional({ checkFalsy: true }).isString().trim(),
   check("username").optional({ checkFalsy: true }).isString().trim(),
   check("password").optional({ checkFalsy: true }).isString().trim(),
-  check("email").optional({ checkFalsy: true }).isString().trim(),
-  check("phoneNumber").optional({ checkFalsy: true }).isString().trim(),
+  check("email")
+    .optional({ checkFalsy: true })
+    .customSanitizer(trimToUndefined)
+    .optional({ checkFalsy: true })
+    .isString()
+    .trim()
+    .custom((value: string) => isEmail(value)),
+  check("phoneNumber")
+    .optional({ checkFalsy: true })
+    .customSanitizer(trimToUndefined)
+    .optional({ checkFalsy: true })
+    .isString()
+    .trim()
+    .custom((value: string) => isPhoneNumber(value)),
   check("balance").optional({ checkFalsy: true }).isNumeric().trim(),
   check("avatar").optional({ checkFalsy: true }).isURL().trim(),
   check("defaultPrivacyLevel")

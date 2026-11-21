@@ -193,6 +193,89 @@ describe("Users API", function () {
         expect(response.body.errors.length).to.eq(1);
       });
     });
+
+    it("errors when an invalid email is sent", function () {
+      cy.request({
+        method: "PATCH",
+        url: `${apiUsers}/${ctx.authenticatedUser!.id}`,
+        failOnStatusCode: false,
+        body: {
+          email: "not-an-email",
+        },
+      }).then((response) => {
+        expect(response.status).to.eq(422);
+        expect(response.body.errors.length).to.eq(1);
+      });
+    });
+
+    it("errors when a phone number that is not ten digits is sent", function () {
+      cy.request({
+        method: "PATCH",
+        url: `${apiUsers}/${ctx.authenticatedUser!.id}`,
+        failOnStatusCode: false,
+        body: {
+          phoneNumber: "615-555-121",
+        },
+      }).then((response) => {
+        expect(response.status).to.eq(422);
+        expect(response.body.errors.length).to.eq(1);
+      });
+    });
+
+    it("accepts an empty email and phone number without a 422", function () {
+      const { firstName } = ctx.authenticatedUser!;
+
+      cy.request("PATCH", `${apiUsers}/${ctx.authenticatedUser!.id}`, {
+        firstName,
+        email: "",
+        phoneNumber: "",
+      }).then((response) => expect(response.status).to.eq(204));
+    });
+
+    it("keeps the stored email and phone number when only whitespace is sent", function () {
+      const { firstName, email, phoneNumber } = ctx.authenticatedUser!;
+
+      cy.request("PATCH", `${apiUsers}/${ctx.authenticatedUser!.id}`, {
+        firstName,
+        email: "   ",
+        phoneNumber: " \t ",
+      })
+        .then((response) => {
+          expect(response.status).to.eq(204);
+
+          return cy.request("GET", `${apiUsers}/${ctx.authenticatedUser!.id}`);
+        })
+        .then((response) => {
+          expect(response.status).to.eq(200);
+          expect(response.body.user.email).to.eq(email);
+          expect(response.body.user.phoneNumber).to.eq(phoneNumber);
+        });
+    });
+
+    it("trims an email and phone number padded with spaces", function () {
+      cy.request("PATCH", `${apiUsers}/${ctx.authenticatedUser!.id}`, {
+        email: `  ${ctx.authenticatedUser!.email}  `,
+        phoneNumber: " (615) 555-1212 ",
+      })
+        .then((response) => {
+          expect(response.status).to.eq(204);
+
+          return cy.request("GET", `${apiUsers}/${ctx.authenticatedUser!.id}`);
+        })
+        .then((response) => {
+          expect(response.status).to.eq(200);
+          expect(response.body.user.email).to.eq(ctx.authenticatedUser!.email);
+          expect(response.body.user.phoneNumber).to.eq("(615) 555-1212");
+        });
+    });
+
+    it("updates a user with a ten digit phone number with separators", function () {
+      cy.request("PATCH", `${apiUsers}/${ctx.authenticatedUser!.id}`, {
+        phoneNumber: "(615) 555-1212",
+      }).then((response) => {
+        expect(response.status).to.eq(204);
+      });
+    });
   });
 
   context("POST /login", function () {
