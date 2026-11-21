@@ -235,23 +235,25 @@ describe("Transactions API", function () {
         amountMax: `${amountWindow.maxCents}`,
       };
 
-      cy.allOf(exportCsv(qs), exportCsv()).then(([filtered, all]) => {
-        expect(filtered.status).to.eq(200);
+      exportCsv(qs)
+        .then((filtered) => exportCsv().then((all) => [filtered, all] as const))
+        .then(([filtered, all]) => {
+          expect(filtered.status).to.eq(200);
 
-        const { header, rows } = parseCsvExport(filtered.body);
-        expect(header).to.eq(csvHeader);
-        // the window is narrow but not empty, and it does cut rows out
-        expect(rows.length).to.be.greaterThan(1);
-        expect(rows.length).to.be.lessThan(parseCsvExport(all.body).rows.length);
+          const { header, rows } = parseCsvExport(filtered.body);
+          expect(header).to.eq(csvHeader);
+          // the window is narrow but not empty, and it does cut rows out
+          expect(rows.length).to.be.greaterThan(1);
+          expect(rows.length).to.be.lessThan(parseCsvExport(all.body).rows.length);
 
-        rows.forEach((cells) => {
-          const amount = Number(cells[4]);
-          // dollars with two decimals: no cents, no grouping separator
-          expect(cells[4], `amount cell is dollars: ${cells[4]}`).to.match(/^\d+\.\d{2}$/);
-          expect(amount).to.be.at.least(amountWindow.minDollars);
-          expect(amount).to.be.below(amountWindow.maxDollars);
+          rows.forEach((cells) => {
+            const amount = Number(cells[4]);
+            // dollars with two decimals: no cents, no grouping separator
+            expect(cells[4], `amount cell is dollars: ${cells[4]}`).to.match(/^\d+\.\d{2}$/);
+            expect(amount).to.be.at.least(amountWindow.minDollars);
+            expect(amount).to.be.below(amountWindow.maxDollars);
+          });
         });
-      });
     });
 
     it("drops the user's transactions outside the amount range", function () {
@@ -279,23 +281,25 @@ describe("Transactions API", function () {
       const dateRangeStart = new Date("Mar 06 2024 12:00:00 GMT").toISOString();
       const dateRangeEnd = new Date("Mar 07 2024 23:59:59 GMT").toISOString();
 
-      cy.allOf(exportCsv({ dateRangeStart, dateRangeEnd }), exportCsv()).then(([filtered, all]) => {
-        expect(filtered.status).to.eq(200);
+      exportCsv({ dateRangeStart, dateRangeEnd })
+        .then((filtered) => exportCsv().then((all) => [filtered, all] as const))
+        .then(([filtered, all]) => {
+          expect(filtered.status).to.eq(200);
 
-        const { header, rows } = parseCsvExport(filtered.body);
-        expect(header).to.eq(csvHeader);
-        expect(rows.length).to.be.greaterThan(1);
-        expect(rows.length).to.be.lessThan(parseCsvExport(all.body).rows.length);
+          const { header, rows } = parseCsvExport(filtered.body);
+          expect(header).to.eq(csvHeader);
+          expect(rows.length).to.be.greaterThan(1);
+          expect(rows.length).to.be.lessThan(parseCsvExport(all.body).rows.length);
 
-        const start = new Date(dateRangeStart).getTime();
-        const end = new Date(dateRangeEnd).getTime();
+          const start = new Date(dateRangeStart).getTime();
+          const end = new Date(dateRangeEnd).getTime();
 
-        rows.forEach((cells) => {
-          const created = new Date(cells[0]).getTime();
-          expect(created, `created within window: ${cells[0]}`).to.be.at.least(start);
-          expect(created, `created within window: ${cells[0]}`).to.be.at.most(end);
+          rows.forEach((cells) => {
+            const created = new Date(cells[0]).getTime();
+            expect(created, `created within window: ${cells[0]}`).to.be.at.least(start);
+            expect(created, `created within window: ${cells[0]}`).to.be.at.most(end);
+          });
         });
-      });
 
       // a window holding no seeded transaction exports the header alone
       exportCsv({
