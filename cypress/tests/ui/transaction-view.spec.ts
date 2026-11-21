@@ -17,7 +17,7 @@ describe("Transaction View", function () {
     cy.intercept("PATCH", "/transactions/*").as("updateTransaction");
 
     cy.intercept("GET", "/checkAuth").as("userProfile");
-    cy.intercept("GET", "/notifications").as("getNotifications");
+    cy.intercept("GET", "/notifications*").as("getNotifications");
     cy.intercept("GET", "/bankAccounts").as("getBankAccounts");
 
     cy.database("find", "users").then((user: User) => {

@@ -37,6 +37,9 @@ describe("Notifications", function () {
       );
 
       cy.log("🚩 Renders the notifications badge with count");
+      // The badge counts unread only, even though the page now fetches read
+      // rows too with ?all=true. User B has no read notification at this point
+      // (the seed has none), so the badge still equals the response length.
       cy.wait("@getNotifications")
         .its("response.body.results.length")
         .then((notificationCount) => {
@@ -56,9 +59,7 @@ describe("Notifications", function () {
       cy.switchUserByXstate(ctx.userB.username);
       cy.visualSnapshot(`Switch to User ${ctx.userB.username}`);
 
-      cy.wait("@getNotifications")
-        .its("response.body.results.length")
-        .as("preDismissedNotificationCount");
+      cy.wait("@getNotifications");
 
       cy.visit("/notifications");
 
@@ -74,10 +75,28 @@ describe("Notifications", function () {
       cy.getBySelLike("notification-mark-read").first().click({ force: true });
       cy.wait("@updateNotification");
 
-      cy.get("@preDismissedNotificationCount").then((count) => {
-        cy.getBySelLike("notification-list-item").should("have.length.lessThan", Number(count));
-      });
+      // The dismissed row stays in the list, dimmed and without its "Dismiss"
+      // control, because the page shows read notifications by default. The
+      // `-read` suffix on data-test marks it as such.
+      cy.get('[data-test^="notification-list-item-"][data-test$="-read"]')
+        .should("have.length", 1)
+        .and("not.contain", "Dismiss");
+      cy.getBySelLike("notification-list-item").should("have.length", 9);
+
+      cy.getBySelLike("notification-mark-read")
+        .should("have.length", 8)
+        .and("have.length.lessThan", 9);
+
+      // The badge dropped by one: read rows no longer count towards it.
+      cy.getBySel("nav-top-notifications-count").should("have.text", "8");
       cy.visualSnapshot("Notification count after notification dismissed");
+
+      cy.log("🚩 Unread-only toggle hides the read notification");
+      cy.getBySel("notifications-unread-only-input").click();
+      // the 8 left are the unread ones, each with its Dismiss; the read row is gone
+      cy.getBySelLike("notification-list-item").should("have.length", 8);
+      cy.get('[data-test^="notification-list-item-"][data-test$="-read"]').should("not.exist");
+      cy.visualSnapshot("Unread only toggle on");
     });
 
     it("User C likes a transaction between User A and User B; User A and User B get notifications that User C liked transaction", function () {
@@ -248,8 +267,21 @@ describe("Notifications", function () {
     });
   });
 
+  it("loads the page with ?all=true", function () {
+    // The page asks the API for read and unread rows, so a read row exists to be
+    // dimmed and for the toggle to hide. The param is added by
+    // notificationsMachine's fetchData, so the case pins it on the wire rather
+    // than on the FETCH event that carries no param.
+    cy.intercept("GET", "/notifications*", { body: { results: [] } }).as("allNotifications");
+
+    cy.loginByXstate(ctx.userA.username);
+    cy.getBySel("sidenav-notifications").click();
+    cy.location("pathname").should("equal", "/notifications");
+    cy.wait("@allNotifications").its("request.url").should("include", "all=true");
+  });
+
   it("renders an empty notifications state", function () {
-    cy.intercept("GET", "/notifications", []).as("notifications");
+    cy.intercept("GET", "/notifications*", []).as("notifications");
 
     cy.loginByXstate(ctx.userA.username);
 
@@ -261,5 +293,66 @@ describe("Notifications", function () {
     cy.getBySel("notification-list").should("not.exist");
     cy.getBySel("empty-list-header").should("contain", "No Notifications");
     cy.visualSnapshot("No Notifications");
+  });
+
+  it("renders the unread-only toggle off by default", function () {
+    cy.intercept("GET", "/notifications*", []).as("notifications");
+
+    cy.loginByXstate(ctx.userA.username);
+
+    if (isMobile()) {
+      cy.getBySel("sidenav-toggle").click();
+    }
+    cy.getBySel("sidenav-notifications").click();
+    cy.location("pathname").should("equal", "/notifications");
+    // Both handles of the toggle: `notifications-unread-only` on the label root
+    // carries the checked state, `…-input` is the visible control the user
+    // clicks (the Switch's own input is visually hidden).
+    cy.getBySel("notifications-unread-only").should("exist").find("input").should("not.be.checked");
+    cy.getBySel("notifications-unread-only-input").should("exist").and("not.be.checked");
+    cy.visualSnapshot("Unread only toggle off by default");
+  });
+
+  it('says "No unread notifications" when the toggle hides the read ones', function () {
+    // Read rows only, served by the intercept (the seed has none, and the seed
+    // must not be edited to make them). Left alone they show dimmed with no
+    // "Dismiss"; with the toggle on they disappear and empty the list, which
+    // is the state EmptyList must name.
+    const readNotification = {
+      id: "read-only-row",
+      uuid: "0e2b1a1c-0000-4000-8000-000000000001",
+      userId: ctx.userA.id,
+      transactionId: "read-only-transaction",
+      isRead: true,
+      userFullName: "Ted Parisian",
+      status: "received",
+      createdAt: "2024-03-07T19:37:59.120Z",
+      modifiedAt: "2024-03-07T19:37:59.120Z",
+    };
+    cy.intercept("GET", "/notifications*", { body: { results: [readNotification] } }).as(
+      "readNotifications"
+    );
+
+    cy.loginByXstate(ctx.userA.username);
+    cy.wait("@readNotifications");
+
+    if (isMobile()) {
+      cy.getBySel("sidenav-toggle").click();
+    }
+    cy.getBySel("sidenav-notifications").click();
+    cy.location("pathname").should("equal", "/notifications");
+
+    // A read row is shown, and carries no Dismiss control. Its data-test gains
+    // the "-read" suffix. The badge ignores it: it counts unread only.
+    cy.getBySelLike("notification-list-item")
+      .should("have.length", 1)
+      .and("not.contain", "Dismiss");
+    cy.getBySel("nav-top-notifications-count").should("have.text", "0");
+    cy.visualSnapshot("Read notification shown, badge counts unread only");
+
+    cy.getBySel("notifications-unread-only-input").click();
+    cy.getBySel("notification-list").should("not.exist");
+    cy.getBySel("empty-list-header").should("contain", "No unread notifications");
+    cy.visualSnapshot("No unread notifications");
   });
 });

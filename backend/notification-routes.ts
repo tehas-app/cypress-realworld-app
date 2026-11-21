@@ -5,6 +5,7 @@ import {
   createNotifications,
   updateNotificationById,
   getUnreadNotificationsByUserId,
+  getAllNotificationsByUserId,
 } from "./database";
 import { ensureAuthenticated, validateMiddleware } from "./helpers";
 import {
@@ -17,9 +18,15 @@ const router = express.Router();
 // Routes
 
 //GET /notifications/
+// `?all=true` answers read and unread notifications; anything else (absent,
+// "false", "") keeps today's unread-only response. Matched on the raw query
+// string value - no validator.
 router.get("/", ensureAuthenticated, (req, res) => {
   /* istanbul ignore next */
-  const notifications = getUnreadNotificationsByUserId(req.user?.id!);
+  const notifications =
+    req.query.all === "true"
+      ? getAllNotificationsByUserId(req.user?.id!)
+      : getUnreadNotificationsByUserId(req.user?.id!);
 
   res.status(200);
   res.json({ results: notifications });
