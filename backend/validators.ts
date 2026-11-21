@@ -18,15 +18,44 @@ const NotificationsTypeValues = Object.values(NotificationsType);
 
 const isShortId = (value: string) => isValid(value);
 
-// Same rule as UserSettingsForm: exactly ten digits, separators between them allowed.
-const isPhoneNumber = (value: string) =>
-  /^[\d-. ()]*\d$/.test(value) && (value.match(/\d/g) ?? []).length === 10;
+// How much text either rule below may scan. Both reject anything well before these lengths
+// - isEmail caps an address at 254 characters and ten digits need at most 19 - so the bound
+// only keeps an oversized value off the character-by-character work.
+const MAX_PHONE_LENGTH = 32;
+const MAX_EMAIL_LENGTH = 254;
 
-// express-validator's optional({ checkFalsy: true }) skips the validators *and* the
-// sanitizers that follow it, so a value of only whitespace never reaches .trim() and is
-// written to the record as-is. Collapsing it to undefined first makes optional() skip the
-// field altogether, and updateUserById's lodash assign then leaves the stored value alone
-// instead of overwriting it with blank text.
+// The same rule UserSettingsForm's phoneRegExp states: ten digits, only space, dot, dash
+// and parentheses beyond them, and at most one of those between two digits - none at either
+// end - so "615-555-1212" passes while "6155551212-", "1234567890)" and "615--555-1212" do
+// not. Single pass over the value, no array of digits, and it gives up as soon as an
+// eleventh digit shows up.
+const isPhoneNumber = (value: string) => {
+  let digits = 0;
+  let expectingDigit = false;
+  for (const char of value) {
+    if (char >= "0" && char <= "9") {
+      digits += 1;
+      if (digits > 10) {
+        return false;
+      }
+      expectingDigit = false;
+    } else if (!"-. ()".includes(char) || digits === 0 || expectingDigit) {
+      return false;
+    } else {
+      expectingDigit = true;
+    }
+  }
+  return digits === 10 && !expectingDigit;
+};
+
+// One .optional({ checkFalsy: true }) per field is the whole mechanism for a value that
+// must not touch the record. In express-validator 6 it is a flag on the context, so a falsy
+// value is dropped before any validator or sanitizer in the chain runs and the rules below
+// never see it. A whitespace-only value is falsy too, and it is dropped before .trim() can
+// turn it into "", which is what keeps updateUserById's lodash assign from overwriting the
+// stored email or phone number with blank text (backend/__tests__/validators.test.ts and
+// cypress/tests/api/api-users.spec.ts pin it). The same drop is what makes both fields
+// optional on POST /users, which shares this chain (see api-users.spec.ts).
 const trimToUndefined = (value: unknown) =>
   typeof value === "string" && value.trim() === "" ? undefined : value;
 
@@ -54,18 +83,22 @@ export const isUserValidator = [
   check("lastName").optional({ checkFalsy: true }).isString().trim(),
   check("username").optional({ checkFalsy: true }).isString().trim(),
   check("password").optional({ checkFalsy: true }).isString().trim(),
+  // Absent or blank email/phone means a PATCH that does not touch the field, not an
+  // error. POST /users shares this chain, so a signup that sends "" is still accepted;
+  // cypress/tests/api/api-users.spec.ts pins that answer, and backend/__tests__/validators
+  // .test.ts pins the whitespace behaviour behind it.
   check("email")
     .optional({ checkFalsy: true })
     .customSanitizer(trimToUndefined)
-    .optional({ checkFalsy: true })
     .isString()
+    .isLength({ max: MAX_EMAIL_LENGTH })
     .trim()
     .custom((value: string) => isEmail(value)),
   check("phoneNumber")
     .optional({ checkFalsy: true })
     .customSanitizer(trimToUndefined)
-    .optional({ checkFalsy: true })
     .isString()
+    .isLength({ max: MAX_PHONE_LENGTH })
     .trim()
     .custom((value: string) => isPhoneNumber(value)),
   check("balance").optional({ checkFalsy: true }).isNumeric().trim(),

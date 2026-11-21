@@ -79,6 +79,14 @@ describe("User Settings", function () {
       .should("be.visible")
       .and("contain", "Phone number is not valid");
 
+    // A separator has to sit between two digits, so it cannot end the value.
+    cy.getBySelLike("phoneNumber-input").clear();
+    cy.getBySelLike("phoneNumber-input").type("6155551212-");
+    cy.getBySelLike("phoneNumber-input").blur();
+    cy.get("#user-settings-phoneNumber-input-helper-text")
+      .should("be.visible")
+      .and("contain", "Phone number is not valid");
+
     cy.getBySelLike("submit").should("be.disabled");
     cy.visualSnapshot("User Settings Form Errors and Submit Disabled");
   });
@@ -88,7 +96,7 @@ describe("User Settings", function () {
     cy.getBySelLike("email-input").type("email@email.com");
     cy.getBySelLike("email-input").blur();
     cy.getBySelLike("phoneNumber-input").clear();
-    cy.getBySelLike("phoneNumber-input").type("(615) 555-1212");
+    cy.getBySelLike("phoneNumber-input").type("615-555-1212");
     cy.getBySelLike("phoneNumber-input").blur();
 
     cy.get("#user-settings-email-input-helper-text").should("not.be.visible");
