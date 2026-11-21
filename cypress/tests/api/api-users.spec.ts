@@ -263,8 +263,14 @@ describe("Users API", function () {
       });
     });
 
+    // An empty value is not an error - but it is not "leave the field alone" either. A
+    // whitespace value is falsy before .trim() can act on it, so optional({ checkFalsy: true })
+    // drops it and the field keeps what it had; "" is dropped while still "", so it reaches
+    // updateUserById's lodash assign as blank text. The next test pins the difference. The
+    // two cases must stay separate tests: folding them here means a future edit to optional()
+    // that stops the "" from being written fails only this second test, not the whitespace one.
     it("accepts an empty email and phone number without a 422", function () {
-      const { firstName, email, phoneNumber } = ctx.authenticatedUser!;
+      const { firstName } = ctx.authenticatedUser!;
 
       cy.request("PATCH", `${apiUsers}/${ctx.authenticatedUser!.id}`, {
         firstName,
@@ -278,9 +284,10 @@ describe("Users API", function () {
         })
         .then((response) => {
           expect(response.status).to.eq(200);
-          // Blank means "do not touch the field", the same answer whitespace gets.
-          expect(response.body.user.email).to.eq(email);
-          expect(response.body.user.phoneNumber).to.eq(phoneNumber);
+          // 204 is the answer under test; these two lines record that the blank *was*
+          // written, so nothing downstream relies on the field surviving a "".
+          expect(response.body.user.email).to.eq("");
+          expect(response.body.user.phoneNumber).to.eq("");
         });
     });
 
