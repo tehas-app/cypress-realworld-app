@@ -1,7 +1,7 @@
 ///<reference path="types.ts" />
 
-import express from "express";
-import { remove, isEmpty, slice, concat } from "lodash/fp";
+import express, { Request, Response, NextFunction } from "express";
+import { remove, isEmpty, slice, concat, isEqual } from "lodash/fp";
 import {
   getTransactionsForUserContacts,
   createTransaction,
@@ -10,6 +10,7 @@ import {
   getTransactionByIdForApi,
   getTransactionsForUserForApi,
   getPublicTransactionsByQuery,
+  getTransactionById,
 } from "./database";
 import { ensureAuthenticated, validateMiddleware } from "./helpers";
 import {
@@ -167,11 +168,27 @@ router.get(
   }
 );
 
+// only the user a request is addressed to may resolve it
+const ensureRequestReceiver = (req: Request, res: Response, next: NextFunction) => {
+  const transaction = getTransactionById(req.params.transactionId);
+
+  if (!transaction) {
+    return res.sendStatus(404);
+  }
+
+  if (!isEqual(transaction.receiverId, req.user?.id)) {
+    return res.sendStatus(403);
+  }
+
+  return next();
+};
+
 //PATCH /transactions/:transactionId - scoped-user
 router.patch(
   "/:transactionId",
   ensureAuthenticated,
   validateMiddleware([shortIdValidation("transactionId"), ...isTransactionPatchValidator]),
+  ensureRequestReceiver,
   (req, res) => {
     const { transactionId } = req.params;
 
