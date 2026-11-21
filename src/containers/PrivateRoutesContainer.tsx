@@ -57,6 +57,12 @@ const PrivateRoutesContainer: React.FC<Props> = ({
   const [, sendNotifications] = useActor(notificationsService);
 
   useEffect(() => {
+    // fetchData always asks the API for read and unread rows (`?all=true`), the
+    // same fetch the notifications page makes: the NavBar badge reads this
+    // machine's context, and once a notification is dismissed it is only still
+    // in `results` - dimmed, not gone - if the list was fetched with the read
+    // rows. Without them the badge would count the first load's snapshot and
+    // never drop as rows are dismissed on the page.
     sendNotifications({ type: "FETCH" });
   }, [sendNotifications]);
 

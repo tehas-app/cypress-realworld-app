@@ -13,7 +13,7 @@ describe("Bank Accounts", function () {
   beforeEach(function () {
     cy.task("db:seed");
 
-    cy.intercept("GET", "/notifications").as("getNotifications");
+    cy.intercept("GET", "/notifications*").as("getNotifications");
 
     cy.intercept("POST", apiGraphQL, (req) => {
       const operationAliases: Record<string, string> = {

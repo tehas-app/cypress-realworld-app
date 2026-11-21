@@ -52,7 +52,7 @@ describe("Transaction Feed", function () {
   beforeEach(function () {
     cy.task("db:seed");
 
-    cy.intercept("GET", "/notifications").as("notifications");
+    cy.intercept("GET", "/notifications*").as("notifications");
     cy.intercept("GET", "/transactions*").as(feedViews.personal.routeAlias);
     cy.intercept("GET", "/transactions/public*").as(feedViews.public.routeAlias);
     cy.intercept("GET", "/transactions/contacts*").as(feedViews.contacts.routeAlias);

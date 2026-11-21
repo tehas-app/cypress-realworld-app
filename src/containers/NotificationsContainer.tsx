@@ -8,7 +8,7 @@ import {
   TypegenDisabled,
 } from "xstate";
 import { useActor } from "@xstate/react";
-import { Button, Paper, Typography } from "@mui/material";
+import { Button, FormControlLabel, Paper, Switch, Typography } from "@mui/material";
 import { NotificationUpdatePayload } from "../models";
 import NotificationList from "../components/NotificationList";
 import { DataContext, DataSchema, DataEvents } from "../machines/dataMachine";
@@ -54,16 +54,28 @@ const NotificationsContainer: React.FC<Props> = ({ authService, notificationsSer
   const [notificationsState, sendNotifications] = useActor(notificationsService);
 
   useEffect(() => {
+    // fetchData always asks for read and unread rows (`?all=true`), so the page
+    // needs no param of its own. The NavBar badge counts the unread subset of
+    // these results, not their length.
     sendNotifications({ type: "FETCH" });
   }, [authState, sendNotifications]);
 
   const updateNotification = (payload: NotificationUpdatePayload) =>
     sendNotifications({ type: "UPDATE", ...payload });
 
-  // `GET /notifications` is served by `getUnreadNotificationsByUserId`
-  // (backend/database.ts:700), which filters `isRead: false`, so every row in
-  // the machine's context is unread. The gate is coupled to that backend filter.
-  const hasUnreadNotifications = Boolean(notificationsState?.context?.results?.length);
+  // The page now loads read rows too, so "unread only" is component-local
+  // state rather than a refetch: the rows are already in the machine's context
+  // and hiding them is a client-side filter.
+  const [unreadOnly, setUnreadOnly] = React.useState(false);
+  const visibleNotifications = unreadOnly
+    ? notificationsState?.context?.results?.filter((notification) => !notification.isRead)
+    : notificationsState?.context?.results;
+
+  // Only unread rows count here: the list itself can hold read rows now that
+  // it is fetched with `all=true`.
+  const hasUnreadNotifications = Boolean(
+    notificationsState?.context?.results?.some((notification) => !notification.isRead)
+  );
 
   const markAllNotificationsAsRead = () =>
     // No `id` in the payload is what makes notificationsMachine's `updateData`
@@ -85,8 +97,23 @@ const NotificationsContainer: React.FC<Props> = ({ authService, notificationsSer
           Mark all as read
         </MarkAllAsReadButton>
       )}
+      <FormControlLabel
+        control={
+          <Switch
+            checked={unreadOnly}
+            onChange={(event) => setUnreadOnly(event.target.checked)}
+            color="primary"
+            // The Switch's own input: FormControlLabel does not pass inputProps on.
+            inputProps={{ "data-test": "notifications-unread-only-input" } as object}
+          />
+        }
+        label="Unread only"
+        // The issue names this handle; MUI puts it on the FormControlLabel root.
+        data-test="notifications-unread-only"
+      />
       <NotificationList
-        notifications={notificationsState?.context?.results!}
+        notifications={visibleNotifications!}
+        unreadOnly={unreadOnly}
         updateNotification={updateNotification}
       />
     </StyledPaper>

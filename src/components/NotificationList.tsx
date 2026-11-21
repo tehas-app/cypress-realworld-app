@@ -8,11 +8,14 @@ import RemindersIllustration from "./SvgUndrawReminders697P";
 
 export interface NotificationsListProps {
   notifications: NotificationResponseItem[];
+  /** Only the unread rows are shown; decides the empty-state copy. */
+  unreadOnly: boolean;
   updateNotification: Function;
 }
 
 const NotificationsList: React.FC<NotificationsListProps> = ({
   notifications,
+  unreadOnly,
   updateNotification,
 }) => {
   return (
@@ -28,7 +31,10 @@ const NotificationsList: React.FC<NotificationsListProps> = ({
           ))}
         </List>
       ) : (
-        <EmptyList entity="Notifications">
+        // With "Unread only" on, an empty list means every notification was
+        // read, so the copy names that rather than "No Notifications".
+        // EmptyList renders "No {entity}", so the entity reads lower-case here.
+        <EmptyList entity={unreadOnly ? "unread notifications" : "Notifications"}>
           <RemindersIllustration style={{ height: 200, width: 250, marginBottom: 30 }} />
         </EmptyList>
       )}
