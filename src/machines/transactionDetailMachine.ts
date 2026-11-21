@@ -26,5 +26,12 @@ export const transactionDetailMachine = dataMachine("transactionData").withConfi
       const resp = await httpClient.patch(`${apiUrl}/transactions/${transactionId}`, payload);
       return resp.data;
     },
+    deleteData: async (ctx, event: any) => {
+      const payload = omit("type", event);
+      const resp = await httpClient.delete(
+        `${apiUrl}/comments/${payload.transactionId}/${payload.commentId}`
+      );
+      return resp.data;
+    },
   },
 });

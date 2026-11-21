@@ -96,6 +96,7 @@ type TransactionProps = {
   transactionLike: Function;
   transactionComment: Function;
   transactionUpdate: Function;
+  commentDelete: (payload: { transactionId: string; commentId: string }) => void;
   currentUser: User;
 };
 
@@ -104,6 +105,7 @@ const TransactionDetail: React.FC<TransactionProps> = ({
   transactionLike,
   transactionComment,
   transactionUpdate,
+  commentDelete,
   currentUser,
 }) => {
   return (
@@ -234,7 +236,11 @@ const TransactionDetail: React.FC<TransactionProps> = ({
           <Typography component="h2" variant="h6" color="primary" gutterBottom>
             <CommentIcon /> Comments
           </Typography>
-          <CommentsList comments={transaction.comments} />
+          <CommentsList
+            comments={transaction.comments}
+            currentUser={currentUser}
+            commentDelete={commentDelete}
+          />
         </Paper>
       )}
     </StyledPaper>

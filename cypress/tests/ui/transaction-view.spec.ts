@@ -75,6 +75,28 @@ describe("Transaction View", function () {
     cy.visualSnapshot("Comment on Transaction");
   });
 
+  it("deletes the signed-in user's own comment", function () {
+    cy.getBySelLike("comment-input").type("Thank you!{enter}");
+    cy.getBySelLike("comment-input").type("This comment gets deleted{enter}");
+    cy.getBySelLike("comments-list").children().should("have.length", 2);
+
+    cy.getBySelLike("comment-delete").click();
+    cy.getBySel("comment-delete-confirm").click();
+
+    cy.getBySelLike("comments-list")
+      .children()
+      .should("have.length", 1)
+      .and("not.contain", "This comment gets deleted");
+    cy.getBySelLike("comments-list").children().contains("Thank you!");
+
+    cy.reload();
+    cy.getBySelLike("comments-list")
+      .children()
+      .should("have.length", 1)
+      .and("not.contain", "This comment gets deleted");
+    cy.visualSnapshot("Comment Deleted");
+  });
+
   it("accepts a transaction request", function () {
     cy.visit(`/transaction/${ctx.transactionRequest!.id}`);
     cy.wait("@getTransaction");

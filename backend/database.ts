@@ -689,6 +689,10 @@ export const createComments = (userId: string, transactionId: string, content: s
   }
 };
 
+export const removeCommentById = (commentId: string) => {
+  db.get(COMMENT_TABLE).remove({ id: commentId }).write();
+};
+
 const saveComment = (comment: Comment): Comment => {
   db.get(COMMENT_TABLE).push(comment).write();
 

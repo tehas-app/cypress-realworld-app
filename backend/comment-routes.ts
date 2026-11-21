@@ -1,7 +1,13 @@
 ///<reference path="types.ts" />
 
-import express from "express";
-import { getCommentsByTransactionId, createComments } from "./database";
+import express, { Request, Response, NextFunction } from "express";
+import { isEqual } from "lodash/fp";
+import {
+  getCommentsByTransactionId,
+  createComments,
+  getCommentById,
+  removeCommentById,
+} from "./database";
 import { ensureAuthenticated, validateMiddleware } from "./helpers";
 import { shortIdValidation, isCommentValidator } from "./validators";
 const router = express.Router();
@@ -35,6 +41,36 @@ router.post(
     createComments(req.user?.id!, transactionId, content);
 
     res.sendStatus(200);
+  }
+);
+
+// only the author of a comment may delete it
+const ensureCommentAuthor = (req: Request, res: Response, next: NextFunction) => {
+  const comment = getCommentById(req.params.commentId);
+
+  if (!comment) {
+    return res.sendStatus(404);
+  }
+
+  if (!isEqual(comment.userId, req.user?.id)) {
+    return res.sendStatus(403);
+  }
+
+  return next();
+};
+
+//DELETE /comments/:transactionId/:commentId - scoped-user
+router.delete(
+  "/:transactionId/:commentId",
+  ensureAuthenticated,
+  validateMiddleware([shortIdValidation("transactionId"), shortIdValidation("commentId")]),
+  ensureCommentAuthor,
+  (req, res) => {
+    const { commentId } = req.params;
+
+    removeCommentById(commentId);
+
+    res.sendStatus(204);
   }
 );
 
