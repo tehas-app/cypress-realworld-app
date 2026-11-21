@@ -804,6 +804,20 @@ export const updateNotificationById = (
   db.get(NOTIFICATION_TABLE).find(notification).assign(edits).write();
 };
 
+// One write for the whole collection. `filter(...).assign(...)` does not work
+// here: lowdb 1.0.0 chains off lodash, and `assign` on a filtered chain copies,
+// so the edits never reach the database. Mutating the matched rows in place and
+// writing once does.
+export const setNotificationsAsReadForUserId = (userId: string) => {
+  db.get(NOTIFICATION_TABLE)
+    .filter({ userId, isRead: false })
+    .forEach((notification: NotificationType) => {
+      notification.isRead = true;
+      notification.modifiedAt = new Date();
+    })
+    .write();
+};
+
 export const formatNotificationForApiResponse = (
   notification: NotificationType
 ): NotificationResponseItem => {
