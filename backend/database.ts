@@ -716,6 +716,12 @@ export const getNotificationsByObj = (query: object): Notification[] =>
 export const getUnreadNotificationsByUserId = (userId: string) =>
   flow(getNotificationsByObj, formatNotificationsForApiResponse)({ userId, isRead: false });
 
+// Every notification of the user, read and unread, newest first. The read rows
+// come from rows a client dismissed (PATCH /notifications/:id sets isRead),
+// never from the seed, which has no read rows.
+export const getAllNotificationsByUserId = (userId: string) =>
+  flow(getNotificationsByObj, formatNotificationsForApiResponse)({ userId });
+
 export const createPaymentNotification = (
   userId: string,
   transactionId: string,

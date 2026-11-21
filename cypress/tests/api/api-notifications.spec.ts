@@ -6,6 +6,7 @@ type TestNotificationsCtx = {
   authenticatedUser?: User;
   transactionId?: string;
   notificationId?: string;
+  unreadNotificationId?: string;
   likeId?: string;
   commentId?: string;
 };
@@ -35,6 +36,23 @@ describe("Notifications API", function () {
       ctx.notificationId = notification.id;
     });
 
+    // A second row of the same user that stays unread, to prove ?all=true is
+    // not just the read rows. uBmeaz5pX is the first user in the seed, which is
+    // also what cy.database("filter", "users")[0] hands out as the signed-in
+    // user, and the seed has 8 unread rows for them.
+    //
+    // The exclusion is done in JS, not in the query: cy.database runs the query
+    // through lodash's `matches` (cypress.config.ts), which has no Mongo
+    // operators - an `id: { $ne: ... }` would be matched as a literal `id.$ne`
+    // property that no row has, and `find` would hand back undefined.
+    cy.database("filter", "notifications", { userId: "uBmeaz5pX" }).then(
+      (notifications: NotificationType[]) => {
+        ctx.unreadNotificationId = notifications.find(
+          (notification) => notification.id !== ctx.notificationId
+        )!.id;
+      }
+    );
+
     cy.database("find", "likes").then((like: Like) => {
       ctx.likeId = like.transactionId;
     });
@@ -50,6 +68,67 @@ describe("Notifications API", function () {
         expect(response.status).to.eq(200);
         expect(response.body.results.length).to.be.greaterThan(0);
       });
+    });
+
+    it("gets only unread notifications, so ?all=true is the only way to see read ones", function () {
+      cy.request("GET", `${apiNotifications}`).then((response) => {
+        expect(response.status).to.eq(200);
+        expect(response.body.results.length).to.be.greaterThan(0);
+        response.body.results.forEach((notification: NotificationType) => {
+          expect(notification.isRead).to.eq(false);
+        });
+      });
+    });
+
+    it("gets read and unread notifications for a user with ?all=true", function () {
+      // The seed has no read rows, so one is made read through the API rather
+      // than by editing data/database-seed.json. Marking before both requests
+      // keeps the plain GET (unread only) comparable.
+      cy.request("PATCH", `${apiNotifications}/${ctx.notificationId}`, { isRead: true }).then(
+        () => {
+          cy.request("GET", `${apiNotifications}?all=true`).then((response) => {
+            expect(response.status).to.eq(200);
+            expect(response.body.results.length).to.be.greaterThan(0);
+
+            const ids = response.body.results.map(
+              (notification: NotificationType) => notification.id
+            );
+            expect(ids).to.include(ctx.notificationId);
+            expect(ids).to.include(ctx.unreadNotificationId);
+
+            const read = response.body.results.filter(
+              (notification: NotificationType) => notification.isRead
+            );
+            const unread = response.body.results.filter(
+              (notification: NotificationType) => !notification.isRead
+            );
+            expect(read.length).to.eq(1);
+            expect(unread.length).to.be.greaterThan(0);
+
+            // Newest first, by modifiedAt.
+            const modifiedAt = response.body.results.map((notification: NotificationType) =>
+              new Date(notification.modifiedAt).getTime()
+            );
+            expect(modifiedAt).to.deep.equal([...modifiedAt].sort((a, b) => b - a));
+
+            // The signed-in user's rows only.
+            response.body.results.forEach((notification: NotificationType) => {
+              expect(notification.userId).to.eq(ctx.authenticatedUser!.id);
+            });
+
+            // Without `all` the same user still sees unread only, and the row
+            // just marked read is gone.
+            return cy
+              .request("GET", `${apiNotifications}`)
+              .then((unreadOnly: Cypress.Response<{ results: NotificationType[] }>) => {
+                expect(unreadOnly.body.results.length).to.eq(unread.length);
+                unreadOnly.body.results.forEach((notification: NotificationType) => {
+                  expect(notification.isRead).to.eq(false);
+                });
+              });
+          });
+        }
+      );
     });
   });
 

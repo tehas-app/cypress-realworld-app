@@ -3,6 +3,14 @@ import { dataMachine } from "./dataMachine";
 import { httpClient } from "../utils/asyncUtils";
 import { apiUrl } from "../utils/portUtils";
 
+// The notifications page and the NavBar badge both load this machine, and both
+// need the read rows: the page to show them dimmed, the badge to keep counting
+// the unread subset as rows are dismissed on the page. So the param is applied
+// here rather than passed in by the callers — the page loads read AND unread
+// with `?all=true`, and any FETCH without it would drop the read rows out of
+// `context.results` (dataMachine's `setResults` REPLACES them on page <= 1).
+const ALL_NOTIFICATIONS_PARAM = { all: "true" };
+
 // Marks every unread notification of the signed-in user as read. `PATCH
 // /notifications` (no id) is issue #3's collection endpoint; it is merged
 // after this frontend, so a #4 build against a develop without it 404s.
@@ -16,8 +24,13 @@ export const notificationsMachine = dataMachine("notifications").withConfig({
   services: {
     fetchData: async (ctx, event: any) => {
       const payload = omit("type", event);
+      // A FETCH that carries filters (an id, a page) still gets `all`: the page
+      // asks for read rows whichever shape the request takes. `isEmpty` keeps
+      // the empty-params case from sending `params: {}`.
+      const params =
+        event.type === "FETCH" ? { ...payload, ...ALL_NOTIFICATIONS_PARAM } : undefined;
       const resp = await httpClient.get(`${apiUrl}/notifications`, {
-        params: !isEmpty(payload) && event.type === "FETCH" ? payload : undefined,
+        params: isEmpty(params) ? undefined : params,
       });
       return resp.data;
     },

@@ -120,7 +120,10 @@ const NavBar: React.FC<NavBarProps> = ({ drawerOpen, toggleDrawer, notifications
   const theme = useTheme();
   const [notificationsState] = useActor(notificationsService);
 
+  // The list is fetched with `all=true`, so `results` also holds read rows.
+  // The badge counts the unread subset, as it did when the API sent only unread.
   const allNotifications = notificationsState?.context?.results;
+  const unreadNotifications = allNotifications?.filter((notification) => !notification.isRead);
   const xsBreakpoint = useMediaQuery(theme.breakpoints.only("xs"));
 
   return (
@@ -178,7 +181,12 @@ const NavBar: React.FC<NavBarProps> = ({ drawerOpen, toggleDrawer, notifications
           size="large"
         >
           <Badge
-            badgeContent={allNotifications ? allNotifications.length : undefined}
+            badgeContent={unreadNotifications ? unreadNotifications.length : undefined}
+            // Without this MUI hides the badge span at zero (scale(0)), and
+            // `nav-top-notifications-count` no longer exists in the DOM for a
+            // user with nothing unread. It used to: before the page fetched
+            // read rows the count was always the full, non-zero list.
+            showZero
             data-test="nav-top-notifications-count"
             classes={{ badge: classes.customBadge }}
           >

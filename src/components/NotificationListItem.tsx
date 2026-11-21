@@ -40,6 +40,7 @@ const classes = {
   green: `${PREFIX}-green`,
   red: `${PREFIX}-red`,
   blue: `${PREFIX}-blue`,
+  read: `${PREFIX}-read`,
 };
 
 const StyledListItem = styled(ListItem)({
@@ -57,6 +58,11 @@ const StyledListItem = styled(ListItem)({
   },
   [`& .${classes.blue}`]: {
     color: "blue",
+  },
+  // Read notifications look read: the row is dimmed and its data-test gains a
+  // "-read" suffix so the e2e spec can tell the two apart.
+  [`&.${classes.read}`]: {
+    opacity: 0.5,
   },
 });
 
@@ -90,10 +96,14 @@ const NotificationListItem: React.FC<NotificationListItemProps> = ({
   }
 
   return (
-    <StyledListItem data-test={`notification-list-item-${notification.id}`}>
+    <StyledListItem
+      className={notification.isRead ? classes.read : undefined}
+      data-test={`notification-list-item-${notification.id}${notification.isRead ? "-read" : ""}`}
+    >
       <ListItemIcon>{listItemIcon!}</ListItemIcon>
       <ListItemText primary={listItemText} />
-      {xsBreakpoint && (
+      {/* A read notification is already dismissed, so it carries no control. */}
+      {!notification.isRead && xsBreakpoint && (
         <IconButton
           aria-label="mark as read"
           color="primary"
@@ -104,7 +114,7 @@ const NotificationListItem: React.FC<NotificationListItemProps> = ({
           <CheckIcon />
         </IconButton>
       )}
-      {!xsBreakpoint && (
+      {!notification.isRead && !xsBreakpoint && (
         <Button
           color="primary"
           size="small"
