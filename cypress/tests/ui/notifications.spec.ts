@@ -93,9 +93,9 @@ describe("Notifications", function () {
 
       cy.log("🚩 Unread-only toggle hides the read notification");
       cy.getBySel("notifications-unread-only-input").click();
-      cy.getBySelLike("notification-list-item")
-        .should("have.length", 8)
-        .should("not.contain", "Dismiss");
+      // the 8 left are the unread ones, each with its Dismiss; the read row is gone
+      cy.getBySelLike("notification-list-item").should("have.length", 8);
+      cy.get('[data-test^="notification-list-item-"][data-test$="-read"]').should("not.exist");
       cy.visualSnapshot("Unread only toggle on");
     });
 
