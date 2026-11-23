@@ -176,8 +176,9 @@ describe("Notifications API", function () {
     });
 
     it("does not touch another user's notifications", function () {
-      cy.database("find", "users").then((otherUser: User) => {
-        const { id: otherUserId } = otherUser;
+      // Not "find users": with no query it returns the first user, who is the one signed in.
+      cy.database("filter", "users").then((users: User[]) => {
+        const { id: otherUserId } = users.find((user) => user.id !== ctx.authenticatedUser!.id)!;
 
         cy.database("filter", "notifications", { userId: otherUserId, isRead: false }).then(
           (unreadBefore: NotificationType[]) => {
