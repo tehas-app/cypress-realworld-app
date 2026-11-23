@@ -26,18 +26,36 @@ const MarginHonoringDiv = styled("div")(({ theme }) => ({
   marginTop: theme.spacing(1),
 }));
 
-const phoneRegExp =
-  /^((\\+[1-9]{1,4}[ \\-]*)|(\\([0-9]{2,3}\\)[ \\-]*)|([0-9]{2,4})[ \\-]*)*?[0-9]{3,4}?[ \\-]*[0-9]{3,4}?$/;
+// A phone number is ten digits and nothing else. The one expression says all of it: the
+// charset is digits plus space, dot, dash and parentheses; a digit may be followed by at
+// most one separator, and only when a digit follows it - so no separator at either end and
+// never two in a row. "615-555-1212" passes; "6155551212-", "(1234567890", "1234567890)"
+// and "615--555-1212" do not. backend/validators.ts's isPhoneNumber is the same rule written
+// as a scan, for PATCH /users/:userId.
+const phoneRegExp = /^(?=[\d -.()]*$)(?:\d|(?<=\d)[-. ()](?=\d))+$/;
+const tenDigits = (value: string) => (value.match(/\d/g) ?? []).length === 10;
+// The rules reject anything well before these lengths - isEmail caps an address at 254
+// characters and ten digits need at most 19 - so they only bound how much text is scanned,
+// on every keystroke here and per request on the API.
+const MAX_PHONE_LENGTH = 32;
+const MAX_EMAIL_LENGTH = 254;
 
 const DefaultPrivacyLevelValues = Object.values(DefaultPrivacyLevel);
 
 const validationSchema = object({
   firstName: string().required("Enter a first name"),
   lastName: string().required("Enter a last name"),
-  email: string().email("Must contain a valid email address").required("Enter an email address"),
+  email: string()
+    .trim()
+    .required("Enter an email address")
+    .max(MAX_EMAIL_LENGTH, "Must contain a valid email address")
+    .email("Must contain a valid email address"),
   phoneNumber: string()
+    .trim()
+    .required("Enter a phone number")
+    .max(MAX_PHONE_LENGTH, "Phone number is not valid")
     .matches(phoneRegExp, "Phone number is not valid")
-    .required("Enter a phone number"),
+    .test("ten-digits", "Phone number is not valid", (value) => tenDigits(value ?? "")),
   defaultPrivacyLevel: mixed<DefaultPrivacyLevel>().oneOf(DefaultPrivacyLevelValues),
 });
 

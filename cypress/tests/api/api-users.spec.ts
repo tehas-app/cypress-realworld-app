@@ -127,7 +127,7 @@ describe("Users API", function () {
         username: faker.internet.userName(),
         password: faker.internet.password(),
         email: faker.internet.email(),
-        phoneNumber: faker.phone.phoneNumber(),
+        phoneNumber: faker.phone.phoneNumber("###-###-####"),
         avatar: faker.internet.avatar(),
       }).then((response) => {
         expect(response.status).to.eq(201);
@@ -144,7 +144,7 @@ describe("Users API", function () {
         username: faker.internet.userName(),
         password: faker.internet.password(),
         email: faker.internet.email(),
-        phoneNumber: faker.phone.phoneNumber(),
+        phoneNumber: faker.phone.phoneNumber("###-###-####"),
         avatar: faker.internet.avatar(),
         balance: 100_00,
       }).then((response) => {
@@ -165,6 +165,47 @@ describe("Users API", function () {
       }).then((response) => {
         expect(response.status).to.eq(422);
         expect(response.body.errors.length).to.eq(1);
+      });
+    });
+
+    // isUserValidator is shared with PATCH /users/:userId and its email/phone rules are
+    // optional({ checkFalsy: true }), so a blank value is "field not sent" rather than an
+    // invalid one on either route. Recorded so the asymmetry with UserSettingsForm, which
+    // requires both, is a decision and not an accident.
+    it("accepts a blank email and phone number on signup without a 422", function () {
+      cy.request("POST", `${apiUsers}`, {
+        firstName: faker.name.firstName(),
+        lastName: faker.name.lastName(),
+        username: faker.internet.userName(),
+        password: faker.internet.password(),
+        email: "",
+        phoneNumber: "",
+        avatar: faker.internet.avatar(),
+        balance: 100_00,
+      }).then((response) => {
+        expect(response.status).to.eq(201);
+        expect(response.body.user.email).to.eq("");
+      });
+    });
+
+    it("errors when an invalid email or phone number is sent on signup", function () {
+      cy.request({
+        method: "POST",
+        url: `${apiUsers}`,
+        failOnStatusCode: false,
+        body: {
+          firstName: faker.name.firstName(),
+          lastName: faker.name.lastName(),
+          username: faker.internet.userName(),
+          password: faker.internet.password(),
+          email: "not-an-email",
+          phoneNumber: "615-555-121",
+          avatar: faker.internet.avatar(),
+          balance: 100_00,
+        },
+      }).then((response) => {
+        expect(response.status).to.eq(422);
+        expect(response.body.errors.length).to.eq(2);
       });
     });
   });
@@ -191,6 +232,106 @@ describe("Users API", function () {
       }).then((response) => {
         expect(response.status).to.eq(422);
         expect(response.body.errors.length).to.eq(1);
+      });
+    });
+
+    it("errors when an invalid email is sent", function () {
+      cy.request({
+        method: "PATCH",
+        url: `${apiUsers}/${ctx.authenticatedUser!.id}`,
+        failOnStatusCode: false,
+        body: {
+          email: "not-an-email",
+        },
+      }).then((response) => {
+        expect(response.status).to.eq(422);
+        expect(response.body.errors.length).to.eq(1);
+      });
+    });
+
+    it("errors when a phone number that is not ten digits is sent", function () {
+      cy.request({
+        method: "PATCH",
+        url: `${apiUsers}/${ctx.authenticatedUser!.id}`,
+        failOnStatusCode: false,
+        body: {
+          phoneNumber: "615-555-121",
+        },
+      }).then((response) => {
+        expect(response.status).to.eq(422);
+        expect(response.body.errors.length).to.eq(1);
+      });
+    });
+
+    // An empty value is not an error - but it is not "leave the field alone" either: "" is
+    // falsy, so optional({ checkFalsy: true }) drops it while still "", and it is written as
+    // blank text. A whitespace-only value is not falsy: the sanitizer makes it undefined and
+    // the route drops it before the update, so the field keeps what it had. The next test
+    // pins that difference; keep the two cases in separate tests.
+    it("accepts an empty email and phone number without a 422", function () {
+      const { firstName } = ctx.authenticatedUser!;
+
+      cy.request("PATCH", `${apiUsers}/${ctx.authenticatedUser!.id}`, {
+        firstName,
+        email: "",
+        phoneNumber: "",
+      })
+        .then((response) => {
+          expect(response.status).to.eq(204);
+
+          return cy.request("GET", `${apiUsers}/${ctx.authenticatedUser!.id}`);
+        })
+        .then((response) => {
+          expect(response.status).to.eq(200);
+          // 204 is the answer under test; these two lines record that the blank *was*
+          // written, so nothing downstream relies on the field surviving a "".
+          expect(response.body.user.email).to.eq("");
+          expect(response.body.user.phoneNumber).to.eq("");
+        });
+    });
+
+    it("keeps the stored email and phone number when only whitespace is sent", function () {
+      const { firstName, email, phoneNumber } = ctx.authenticatedUser!;
+
+      cy.request("PATCH", `${apiUsers}/${ctx.authenticatedUser!.id}`, {
+        firstName,
+        email: "   ",
+        phoneNumber: " \t ",
+      })
+        .then((response) => {
+          expect(response.status).to.eq(204);
+
+          return cy.request("GET", `${apiUsers}/${ctx.authenticatedUser!.id}`);
+        })
+        .then((response) => {
+          expect(response.status).to.eq(200);
+          expect(response.body.user.email).to.eq(email);
+          expect(response.body.user.phoneNumber).to.eq(phoneNumber);
+        });
+    });
+
+    it("trims an email and phone number padded with spaces", function () {
+      cy.request("PATCH", `${apiUsers}/${ctx.authenticatedUser!.id}`, {
+        email: `  ${ctx.authenticatedUser!.email}  `,
+        phoneNumber: " 615-555-1212 ",
+      })
+        .then((response) => {
+          expect(response.status).to.eq(204);
+
+          return cy.request("GET", `${apiUsers}/${ctx.authenticatedUser!.id}`);
+        })
+        .then((response) => {
+          expect(response.status).to.eq(200);
+          expect(response.body.user.email).to.eq(ctx.authenticatedUser!.email);
+          expect(response.body.user.phoneNumber).to.eq("615-555-1212");
+        });
+    });
+
+    it("updates a user with a ten digit phone number with separators", function () {
+      cy.request("PATCH", `${apiUsers}/${ctx.authenticatedUser!.id}`, {
+        phoneNumber: "615-555-1212",
+      }).then((response) => {
+        expect(response.status).to.eq(204);
       });
     });
   });

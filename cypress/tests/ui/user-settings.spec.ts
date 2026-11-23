@@ -63,8 +63,60 @@ describe("User Settings", function () {
       .should("be.visible")
       .and("contain", "Phone number is not valid");
 
+    // Nine digits: separators are fine, the digit count is not.
+    cy.getBySelLike("phoneNumber-input").clear();
+    cy.getBySelLike("phoneNumber-input").type("615-555-121");
+    cy.getBySelLike("phoneNumber-input").blur();
+    cy.get("#user-settings-phoneNumber-input-helper-text")
+      .should("be.visible")
+      .and("contain", "Phone number is not valid");
+
+    // Eleven digits is not ten digits either.
+    cy.getBySelLike("phoneNumber-input").clear();
+    cy.getBySelLike("phoneNumber-input").type("61555512123");
+    cy.getBySelLike("phoneNumber-input").blur();
+    cy.get("#user-settings-phoneNumber-input-helper-text")
+      .should("be.visible")
+      .and("contain", "Phone number is not valid");
+
+    // A separator has to sit between two digits, so it cannot end the value.
+    cy.getBySelLike("phoneNumber-input").clear();
+    cy.getBySelLike("phoneNumber-input").type("6155551212-");
+    cy.getBySelLike("phoneNumber-input").blur();
+    cy.get("#user-settings-phoneNumber-input-helper-text")
+      .should("be.visible")
+      .and("contain", "Phone number is not valid");
+
     cy.getBySelLike("submit").should("be.disabled");
     cy.visualSnapshot("User Settings Form Errors and Submit Disabled");
+  });
+
+  it("accepts a phone number of ten digits with separators", function () {
+    cy.getBySelLike("email-input").clear();
+    cy.getBySelLike("email-input").type("email@email.com");
+    cy.getBySelLike("email-input").blur();
+    cy.getBySelLike("phoneNumber-input").clear();
+    cy.getBySelLike("phoneNumber-input").type("615-555-1212");
+    cy.getBySelLike("phoneNumber-input").blur();
+
+    cy.get("#user-settings-email-input-helper-text").should("not.exist");
+    cy.get("#user-settings-phoneNumber-input-helper-text").should("not.exist");
+    cy.getBySelLike("submit").should("not.be.disabled");
+    cy.visualSnapshot("User Settings Form Separated Phone Number Valid");
+  });
+
+  it("rejects a phone number that is only spaces", function () {
+    cy.getBySelLike("phoneNumber-input").clear();
+    cy.getBySelLike("phoneNumber-input").type("   ");
+    cy.getBySelLike("phoneNumber-input").blur();
+    // .trim() runs before required, so spaces are no number at all — the same message an
+    // emptied field gets, not "Phone number is not valid".
+    cy.get("#user-settings-phoneNumber-input-helper-text")
+      .should("be.visible")
+      .and("contain", "Enter a phone number");
+
+    cy.getBySelLike("submit").should("be.disabled");
+    cy.visualSnapshot("User Settings Form Whitespace Phone Number Invalid");
   });
 
   it("updates first name, last name, email and phone number", function () {
@@ -74,6 +126,7 @@ describe("User Settings", function () {
     cy.getBySelLike("lastName").type("New Last Name");
     cy.getBySelLike("email").clear();
     cy.getBySelLike("email").type("email@email.com");
+    // The seeded faker phone number can carry an extension, so type ten digits.
     cy.getBySelLike("phoneNumber-input").clear();
     cy.getBySelLike("phoneNumber-input").type("6155551212");
     cy.getBySelLike("phoneNumber-input").blur();

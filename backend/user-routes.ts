@@ -1,7 +1,7 @@
 ///<reference path="types.ts" />
 
 import express from "express";
-import { isEqual, pick } from "lodash/fp";
+import { isEqual, isUndefined, omitBy, pick } from "lodash/fp";
 
 import {
   getAllUsers,
@@ -86,7 +86,9 @@ router.patch(
   (req, res) => {
     const { userId } = req.params;
 
-    const edits: User = req.body;
+    // A sanitizer may leave a key undefined (a whitespace-only email or phone number):
+    // that means "not sent", so it must not reach lodash's assign, which would write it.
+    const edits: Partial<User> = omitBy(isUndefined, req.body);
 
     updateUserById(userId, edits);
 
