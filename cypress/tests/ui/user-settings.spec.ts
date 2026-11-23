@@ -99,8 +99,8 @@ describe("User Settings", function () {
     cy.getBySelLike("phoneNumber-input").type("615-555-1212");
     cy.getBySelLike("phoneNumber-input").blur();
 
-    cy.get("#user-settings-email-input-helper-text").should("not.be.visible");
-    cy.get("#user-settings-phoneNumber-input-helper-text").should("not.be.visible");
+    cy.get("#user-settings-email-input-helper-text").should("not.exist");
+    cy.get("#user-settings-phoneNumber-input-helper-text").should("not.exist");
     cy.getBySelLike("submit").should("not.be.disabled");
     cy.visualSnapshot("User Settings Form Separated Phone Number Valid");
   });

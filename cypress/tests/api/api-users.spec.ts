@@ -127,7 +127,7 @@ describe("Users API", function () {
         username: faker.internet.userName(),
         password: faker.internet.password(),
         email: faker.internet.email(),
-        phoneNumber: faker.phone.phoneNumber(),
+        phoneNumber: faker.phone.phoneNumber("###-###-####"),
         avatar: faker.internet.avatar(),
       }).then((response) => {
         expect(response.status).to.eq(201);
@@ -144,7 +144,7 @@ describe("Users API", function () {
         username: faker.internet.userName(),
         password: faker.internet.password(),
         email: faker.internet.email(),
-        phoneNumber: faker.phone.phoneNumber(),
+        phoneNumber: faker.phone.phoneNumber("###-###-####"),
         avatar: faker.internet.avatar(),
         balance: 100_00,
       }).then((response) => {
