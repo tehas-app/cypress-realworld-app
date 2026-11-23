@@ -2,7 +2,8 @@
 # builds with no network, so preview/Dockerfile starts FROM
 # ghcr.io/tehas-app/cypress-realworld-app-deps:<tag>, where <tag> is
 # preview/deps-tag.sh's digest of what decides node_modules. This checks the
-# recipe names that tag, and publishes the image when the tag is new.
+# recipe names that tag, and publishes the image when the tag is new. Own
+# branches run on the org's runners, a fork's pull request on GitHub's.
 name: Preview dependencies
 
 on:
@@ -16,7 +17,7 @@ permissions:
 
 jobs:
   deps:
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted", "tehas"]') || 'ubuntu-latest' }}
     env:
       IMAGE: ghcr.io/tehas-app/cypress-realworld-app-deps
     steps:

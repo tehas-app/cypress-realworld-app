@@ -1,6 +1,10 @@
 # The fork's CI. Upstream records to Cypress Cloud in five parallel containers;
 # this fork has no record key, so the end-to-end tests run in one container,
 # unrecorded, in Chrome.
+#
+# The org's own runners take this repository's own branches and pushes. The
+# repository is public, so a pull request from a fork runs on GitHub's hosted
+# runners and never on ours.
 name: Cypress Tests
 
 on:
@@ -10,7 +14,7 @@ on:
 
 jobs:
   install:
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted", "tehas"]') || 'ubuntu-latest' }}
     container:
       image: cypress/browsers:22.20.0
       options: --user 1001
@@ -36,7 +40,7 @@ jobs:
 
   ui-chrome-tests:
     timeout-minutes: 30
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted", "tehas"]') || 'ubuntu-latest' }}
     container:
       image: cypress/browsers:22.20.0
       options: --user 1001
