@@ -79,12 +79,11 @@ describe("isUserValidator email and phone number", () => {
     expect(body.phoneNumber).toBe("615-555-1212");
   });
 
-  // What actually protects the stored value: a falsy email/phone never survives the one
-  // .optional({ checkFalsy: true }), so updateUserById's lodash assign is handed undefined
-  // for the key and leaves the stored email/phone number alone. A blank string is still
-  // written for "", because that value is dropped before the sanitizer can turn it into
-  // undefined - but it is undefined for the whitespace case the Cypress spec covers, and
-  // that spec cannot run in the fast gate, so the undefined is asserted here.
+  // A whitespace-only email or phone number is not falsy, so .optional({ checkFalsy: true })
+  // lets it through and the sanitizer turns it into undefined. The PATCH route drops
+  // undefined keys before updateUserById, so the stored value is left alone; "" is falsy,
+  // is dropped by .optional() first, and is still written as "". The Cypress spec cannot
+  // run in the fast gate, so the undefined is asserted here.
   it.each(["   ", " \t ", " \n "])(
     "sends %j as no value at all, so the stored field is left alone",
     async (value) => {

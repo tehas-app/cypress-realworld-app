@@ -263,12 +263,11 @@ describe("Users API", function () {
       });
     });
 
-    // An empty value is not an error - but it is not "leave the field alone" either. A
-    // whitespace value is falsy before .trim() can act on it, so optional({ checkFalsy: true })
-    // drops it and the field keeps what it had; "" is dropped while still "", so it reaches
-    // updateUserById's lodash assign as blank text. The next test pins the difference. The
-    // two cases must stay separate tests: folding them here means a future edit to optional()
-    // that stops the "" from being written fails only this second test, not the whitespace one.
+    // An empty value is not an error - but it is not "leave the field alone" either: "" is
+    // falsy, so optional({ checkFalsy: true }) drops it while still "", and it is written as
+    // blank text. A whitespace-only value is not falsy: the sanitizer makes it undefined and
+    // the route drops it before the update, so the field keeps what it had. The next test
+    // pins that difference; keep the two cases in separate tests.
     it("accepts an empty email and phone number without a 422", function () {
       const { firstName } = ctx.authenticatedUser!;
 

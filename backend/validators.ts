@@ -48,14 +48,11 @@ const isPhoneNumber = (value: string) => {
   return digits === 10 && !expectingDigit;
 };
 
-// One .optional({ checkFalsy: true }) per field is the whole mechanism for a value that
-// must not touch the record. In express-validator 6 it is a flag on the context, so a falsy
-// value is dropped before any validator or sanitizer in the chain runs and the rules below
-// never see it. A whitespace-only value is falsy too, and it is dropped before .trim() can
-// turn it into "", which is what keeps updateUserById's lodash assign from overwriting the
-// stored email or phone number with blank text (backend/__tests__/validators.test.ts and
-// cypress/tests/api/api-users.spec.ts pin it). The same drop is what makes both fields
-// optional on POST /users, which shares this chain (see api-users.spec.ts).
+// A whitespace-only email or phone number is not falsy, so .optional({ checkFalsy: true })
+// lets it through; this sanitizer turns it into undefined before .trim() can make it "", and
+// the rules after it skip it. The PATCH route then drops undefined keys before the update,
+// because lodash's assign would otherwise write the undefined over the stored value. ""
+// itself is falsy, so it is dropped by .optional() and reaches the update as "".
 const trimToUndefined = (value: unknown) =>
   typeof value === "string" && value.trim() === "" ? undefined : value;
 
@@ -70,6 +67,8 @@ export const userFieldsValidator = oneOf([
   check("balance").exists(),
   check("avatar").exists(),
   check("defaultPrivacyLevel").exists(),
+  check("email").exists(),
+  check("phoneNumber").exists(),
 ]);
 
 export const isBankAccountValidator = [
