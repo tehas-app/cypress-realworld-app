@@ -12,6 +12,7 @@ import {
   getNotificationsByUserId,
   createNotifications,
   updateNotificationById,
+  setNotificationsAsReadForUserId,
   getNotificationById,
   formatNotificationForApiResponse,
 } from "../../backend/database";
@@ -138,5 +139,48 @@ describe("Notifications", () => {
     // @ts-ignore
     const updatedNotification = getNotificationById(notifications[0].id);
     expect(updatedNotification.isRead).toBe(true);
+  });
+
+  it("should mark every unread notification of a user read and leave another user's untouched", () => {
+    const otherUser = getAllUsers()[1];
+
+    const unreadFor = (userId: string) =>
+      getNotificationsByUserId(userId).filter(
+        // @ts-ignore
+        (notification) => notification.isRead === false
+      );
+
+    const unread = unreadFor(user.id);
+    const unreadForOtherUser = unreadFor(otherUser.id);
+
+    expect(unread.length).toBeGreaterThan(0);
+    expect(unreadForOtherUser.length).toBeGreaterThan(0);
+
+    setNotificationsAsReadForUserId(user.id);
+
+    // The writes must have reached the file, not just the in-memory chain.
+    expect(unreadFor(user.id).length).toBe(0);
+    expect(unreadFor(otherUser.id).length).toBe(unreadForOtherUser.length);
+
+    // Every row the user has is now read, and each one carries a modifiedAt.
+    const all = getNotificationsByUserId(user.id);
+    // @ts-ignore
+    expect(all.every((notification) => notification.isRead === true)).toBe(true);
+    // @ts-ignore
+    expect(all.every((notification) => !!notification.modifiedAt)).toBe(true);
+
+    // A second call is a no-op and still answers without throwing.
+    expect(() => setNotificationsAsReadForUserId(user.id)).not.toThrow();
+    expect(unreadFor(user.id).length).toBe(0);
+    expect(unreadFor(otherUser.id).length).toBe(unreadForOtherUser.length);
+
+    // Marking one user read must not reach into another user's rows.
+    const otherUserRead = getNotificationsByUserId(otherUser.id).filter(
+      // @ts-ignore
+      (notification) => notification.isRead === true
+    );
+    expect(otherUserRead.length).toBe(
+      getNotificationsByUserId(otherUser.id).length - unreadForOtherUser.length
+    );
   });
 });

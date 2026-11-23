@@ -209,9 +209,7 @@ describe("Transactions API", function () {
       exportCsv().then((response) => {
         expect(response.status).to.eq(200);
         expect(response.headers["content-type"]).to.include("text/csv");
-        expect(response.headers["content-disposition"]).to.eq(
-          'attachment; filename="transactions.csv"'
-        );
+        expect(response.headers["content-disposition"]).to.eq('attachment; filename="export.csv"');
 
         const { header, rows } = parseCsvExport(response.body);
         expect(header).to.eq(csvHeader);

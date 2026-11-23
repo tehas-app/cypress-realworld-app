@@ -152,7 +152,7 @@ router.get(
 
     res.status(200);
     res.type("text/csv");
-    res.set("Content-Disposition", 'attachment; filename="transactions.csv"');
+    res.set("Content-Disposition", 'attachment; filename="export.csv"');
     res.send(csv);
   }
 );

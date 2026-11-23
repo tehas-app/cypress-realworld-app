@@ -160,6 +160,46 @@ describe("Notifications API", function () {
     });
   });
 
+  context("PATCH /notifications", function () {
+    it("marks every unread notification for the user read and answers 204", function () {
+      const { id: userId } = ctx.authenticatedUser!;
+
+      cy.request("PATCH", `${apiNotifications}`).then((response) => {
+        expect(response.status).to.eq(204);
+
+        cy.database("filter", "notifications", { userId, isRead: false }).then(
+          (unread: NotificationType[]) => {
+            expect(unread.length).to.eq(0);
+          }
+        );
+      });
+    });
+
+    it("does not touch another user's notifications", function () {
+      // Not "find users": with no query it returns the first user, who is the one signed in.
+      cy.database("filter", "users").then((users: User[]) => {
+        const { id: otherUserId } = users.find((user) => user.id !== ctx.authenticatedUser!.id)!;
+
+        cy.database("filter", "notifications", { userId: otherUserId, isRead: false }).then(
+          (unreadBefore: NotificationType[]) => {
+            expect(unreadBefore.length).to.be.greaterThan(0);
+            const unreadCountBefore = unreadBefore.length;
+
+            cy.request("PATCH", `${apiNotifications}`).then((response) => {
+              expect(response.status).to.eq(204);
+
+              cy.database("filter", "notifications", { userId: otherUserId, isRead: false }).then(
+                (unreadAfter: NotificationType[]) => {
+                  expect(unreadAfter.length).to.eq(unreadCountBefore);
+                }
+              );
+            });
+          }
+        );
+      });
+    });
+  });
+
   context("PATCH /notifications/:notificationId", function () {
     it("updates a notification", function () {
       cy.request("PATCH", `${apiNotifications}/${ctx.notificationId}`, {
