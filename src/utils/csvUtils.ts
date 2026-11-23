@@ -1,4 +1,6 @@
-import { TransactionResponseItem } from "../models";
+import { TransactionResponseItem, TransactionQueryPayload } from "../models";
+import { httpClient } from "./asyncUtils";
+import { apiUrl } from "./portUtils";
 
 // RFC 4180, section 2.2: a field containing a comma, a double quote or a line
 // break (CRLF or a lone LF) is enclosed in double quotes, and a quote inside it
@@ -42,4 +44,40 @@ export const serializeTransactionsCsv = (transactions: TransactionResponseItem[]
   const rows = transactions.map((transaction) => columns.map(([, read]) => read(transaction)));
 
   return [serializeCsvRow(headerRow), ...rows.map((row) => serializeCsvRow(row))].join("\r\n");
+};
+
+// The name the browser saves the download under, and the name the API names it
+// in its Content-Disposition, so a proxy that drops that header still saves this.
+export const exportCsvFileName = "export.csv";
+
+// The object URL is only valid while the anchor is in the document, and the
+// browser needs it there until it has started reading the blob.
+const saveBlob = (blob: Blob): void => {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = exportCsvFileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
+
+// Ask the API for the file rather than serialising the loaded page in the
+// browser: the export is the whole filtered set, not the pages fetched so far.
+// The date and amount filters go as query strings, the same ones the list's
+// FETCH sends, so the file holds what the list shows.
+//
+// responseType "blob" keeps axios from parsing the CSV as text, which would
+// hand the browser a blob with the wrong bytes. The backend serialises this same
+// file, so only the request lives here - no CSV logic to duplicate.
+export const downloadTransactionsCsv = async (filters: TransactionQueryPayload): Promise<void> => {
+  const params = Object.keys(filters).length ? filters : undefined;
+  const response = await httpClient.get<Blob>(`${apiUrl}/transactions/export.csv`, {
+    params,
+    responseType: "blob",
+  });
+
+  saveBlob(response.data);
 };
